@@ -42,7 +42,8 @@
       "description": "Maximum number of comments to scrape per post/item.",
       "default": 20,
       "minimum": 1,
-      "maximum": 1000
+      "maximum": 1000,
+      "editor": "number"
     },
     "includeMedia": {
       "title": "Include media files",
@@ -57,7 +58,8 @@
       "description": "Maximum number of items to scrape.",
       "default": 1000,
       "minimum": 0,
-      "maximum": 50000
+      "maximum": 50000,
+      "editor": "number"
     },
     "maxConcurrency": {
       "title": "Max Concurrency",
@@ -65,7 +67,8 @@
       "description": "Maximum number of pages that can be processed at the same time.",
       "default": 10,
       "minimum": 1,
-      "maximum": 100
+      "maximum": 100,
+      "editor": "number"
     },
     "minConcurrency": {
       "title": "Min Concurrency",
@@ -73,7 +76,8 @@
       "description": "Minimum number of pages that will be processed at the same time.",
       "default": 1,
       "minimum": 1,
-      "maximum": 10
+      "maximum": 10,
+      "editor": "number"
     },
     "maxRequestRetries": {
       "title": "Max Request Retries",
@@ -81,14 +85,16 @@
       "description": "Number of times the crawler will retry a failed request before giving up.",
       "default": 3,
       "minimum": 0,
-      "maximum": 30
+      "maximum": 30,
+      "editor": "number"
     },
     "storeName": {
       "title": "Name your storage for downloads/items (deduplication and long-term retention), it can only contain letters 'a' through 'z', the digits '0' through '9', and the hyphen ('-') but only in the middle of the string (e.g. 'my-value-1')",
       "type": "string",
       "description": "Assign a custom name to the Key-Value Store where your scraped listings will be saved. This ensures: Data Deduplication, Persistent Storage, Project Management, Data Reuse. (If left blank, the default storage will be used with standard retention limits.)",
       "default": "skool-data",
-      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "editor": "textfield"
     },
     "cookies": {
       "title": "Cookies",
@@ -129,7 +135,8 @@
       "description": "Only extract posts with at least this many likes (0 = no filter)",
       "default": 0,
       "minimum": 0,
-      "maximum": 10000
+      "maximum": 10000,
+      "editor": "number"
     },
     "minComments": {
       "title": "Minimum Comments Filter", 
@@ -137,7 +144,8 @@
       "description": "Only extract posts with at least this many comments (0 = no filter)",
       "default": 0,
       "minimum": 0,
-      "maximum": 1000
+      "maximum": 1000,
+      "editor": "number"
     },
     "keywordFilter": {
       "title": "Keyword Filter (comma-separated)",
