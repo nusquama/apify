@@ -55,11 +55,38 @@ Transform your Skool community insights into actionable data with this powerful,
   "startUrls": [
     {"url": "https://www.skool.com/your-community"}
   ],
-  "extractionMode": "community",
-  "dataDepth": "complete",
-  "maxPosts": 1000,
-  "includeAnalytics": true,
-  "cookies": [...your-cookies...]
+  "tab": "community",
+  "maxItems": 1000,
+  "includeComments": true,
+  "cookies": [...your-cookies...],
+  "searchPresets": "high-engagement"
+}
+```
+
+### Step 2b: Advanced Search Filters (Optional)
+```json
+{
+  "searchFilters": {
+    "dateRange": {
+      "enabled": true,
+      "startDate": "2024-07-01",
+      "endDate": "2024-12-31"
+    },
+    "engagement": {
+      "enabled": true,
+      "minLikes": 10,
+      "minComments": 5
+    },
+    "content": {
+      "enabled": true,
+      "keywords": ["AI", "automation"],
+      "excludeKeywords": ["spam"]
+    },
+    "sorting": {
+      "sortBy": "engagement",
+      "sortOrder": "desc"
+    }
+  }
 }
 ```
 

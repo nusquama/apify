@@ -33,7 +33,8 @@
       "mcp__context7__get-library-docs",
       "Bash(npm start)",
       "Bash(APIFY_INPUT_FILE=test_input.json npm start)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm test)"
     ],
     "deny": []
   }
