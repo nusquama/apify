@@ -41,6 +41,12 @@ function validateInput(input) {
     // Validate tab selection
     validateTab(validated.tab);
 
+    // Validate search filters
+    validateSearchFilters(validated.searchFilters);
+
+    // Validate search presets
+    validateSearchPresets(validated.searchPresets);
+
     // Set defaults for optional parameters
     setDefaults(validated);
 
@@ -286,6 +292,122 @@ function validateProxyConfig(proxyConfig) {
     }
 }
 
+/**
+ * Validates search filters configuration
+ * @param {Object} searchFilters - Search filters object
+ */
+function validateSearchFilters(searchFilters) {
+    if (!searchFilters) return;
+
+    if (typeof searchFilters !== 'object') {
+        throw new ValidationError('searchFilters must be an object');
+    }
+
+    // Validate date range filter
+    if (searchFilters.dateRange) {
+        const dateRange = searchFilters.dateRange;
+        if (dateRange.enabled && (dateRange.startDate || dateRange.endDate)) {
+            if (dateRange.startDate && !isValidDate(dateRange.startDate)) {
+                throw new ValidationError('searchFilters.dateRange.startDate must be a valid date (YYYY-MM-DD)');
+            }
+            if (dateRange.endDate && !isValidDate(dateRange.endDate)) {
+                throw new ValidationError('searchFilters.dateRange.endDate must be a valid date (YYYY-MM-DD)');
+            }
+            if (dateRange.startDate && dateRange.endDate && new Date(dateRange.startDate) > new Date(dateRange.endDate)) {
+                throw new ValidationError('searchFilters.dateRange.startDate must be before endDate');
+            }
+        }
+    }
+
+    // Validate engagement filter
+    if (searchFilters.engagement) {
+        const engagement = searchFilters.engagement;
+        if (engagement.enabled) {
+            if (engagement.minLikes !== undefined && (typeof engagement.minLikes !== 'number' || engagement.minLikes < 0)) {
+                throw new ValidationError('searchFilters.engagement.minLikes must be a non-negative number');
+            }
+            if (engagement.maxLikes !== undefined && (typeof engagement.maxLikes !== 'number' || engagement.maxLikes < 0)) {
+                throw new ValidationError('searchFilters.engagement.maxLikes must be a non-negative number');
+            }
+            if (engagement.minComments !== undefined && (typeof engagement.minComments !== 'number' || engagement.minComments < 0)) {
+                throw new ValidationError('searchFilters.engagement.minComments must be a non-negative number');
+            }
+            if (engagement.minEngagementRate !== undefined && (typeof engagement.minEngagementRate !== 'number' || engagement.minEngagementRate < 0 || engagement.minEngagementRate > 1)) {
+                throw new ValidationError('searchFilters.engagement.minEngagementRate must be a number between 0 and 1');
+            }
+        }
+    }
+
+    // Validate content filter
+    if (searchFilters.content) {
+        const content = searchFilters.content;
+        if (content.enabled) {
+            if (content.keywords && !Array.isArray(content.keywords)) {
+                throw new ValidationError('searchFilters.content.keywords must be an array');
+            }
+            if (content.excludeKeywords && !Array.isArray(content.excludeKeywords)) {
+                throw new ValidationError('searchFilters.content.excludeKeywords must be an array');
+            }
+            if (content.minLength !== undefined && (typeof content.minLength !== 'number' || content.minLength < 0)) {
+                throw new ValidationError('searchFilters.content.minLength must be a non-negative number');
+            }
+        }
+    }
+
+    // Validate authors filter
+    if (searchFilters.authors) {
+        const authors = searchFilters.authors;
+        if (authors.enabled) {
+            if (authors.includeAuthors && !Array.isArray(authors.includeAuthors)) {
+                throw new ValidationError('searchFilters.authors.includeAuthors must be an array');
+            }
+            if (authors.excludeAuthors && !Array.isArray(authors.excludeAuthors)) {
+                throw new ValidationError('searchFilters.authors.excludeAuthors must be an array');
+            }
+        }
+    }
+
+    // Validate sorting
+    if (searchFilters.sorting) {
+        const sorting = searchFilters.sorting;
+        const validSortBy = ['date', 'likes', 'comments', 'engagement', 'alphabetical'];
+        const validSortOrder = ['asc', 'desc'];
+
+        if (sorting.sortBy && !validSortBy.includes(sorting.sortBy)) {
+            throw new ValidationError(`searchFilters.sorting.sortBy must be one of: ${validSortBy.join(', ')}`);
+        }
+        if (sorting.sortOrder && !validSortOrder.includes(sorting.sortOrder)) {
+            throw new ValidationError(`searchFilters.sorting.sortOrder must be one of: ${validSortOrder.join(', ')}`);
+        }
+    }
+}
+
+/**
+ * Validates search presets
+ * @param {string} searchPresets - Search preset name
+ */
+function validateSearchPresets(searchPresets) {
+    if (!searchPresets) return;
+
+    const validPresets = ['none', 'high-engagement', 'recent-posts', 'popular-discussions', 'trending-content'];
+    if (!validPresets.includes(searchPresets)) {
+        throw new ValidationError(`searchPresets must be one of: ${validPresets.join(', ')}`);
+    }
+}
+
+/**
+ * Validates date string format
+ * @param {string} dateString - Date in YYYY-MM-DD format
+ * @returns {boolean} True if valid
+ */
+function isValidDate(dateString) {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateString)) return false;
+    
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date) && dateString === date.toISOString().split('T')[0];
+}
+
 export {
     ValidationError,
     AuthenticationError,
@@ -300,5 +422,7 @@ export {
     validateCommentData,
     normalizeCookies,
     validateProxyConfig,
+    validateSearchFilters,
+    validateSearchPresets,
     setDefaults
 };

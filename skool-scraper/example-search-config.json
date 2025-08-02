@@ -1,0 +1,48 @@
+{
+  "startUrls": [
+    {
+      "url": "https://www.skool.com/ai-builder-2894"
+    }
+  ],
+  "tab": "community",
+  "includeComments": true,
+  "maxItems": 1000,
+  "cookies": [...],
+  
+  "searchPresets": "high-engagement",
+  
+  "searchFilters": {
+    "dateRange": {
+      "enabled": true,
+      "startDate": "2024-07-01",
+      "endDate": "2024-12-31"
+    },
+    "engagement": {
+      "enabled": true,
+      "minLikes": 10,
+      "minComments": 2,
+      "minEngagementRate": 0.1
+    },
+    "content": {
+      "enabled": true,
+      "keywords": ["AI", "automation", "growth"],
+      "excludeKeywords": ["spam", "promotional"],
+      "minLength": 100,
+      "hasMedia": false
+    },
+    "authors": {
+      "enabled": false,
+      "includeAuthors": ["top-contributor"],
+      "excludeAuthors": ["spam-user"]
+    },
+    "sorting": {
+      "sortBy": "engagement",
+      "sortOrder": "desc"
+    }
+  },
+  
+  "proxyConfig": {
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"]
+  }
+}

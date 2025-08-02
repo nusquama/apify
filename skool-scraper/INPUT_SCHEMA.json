@@ -103,6 +103,155 @@
       "description": "Enable verbose logging for troubleshooting",
       "default": false,
       "editor": "checkbox"
+    },
+    "searchFilters": {
+      "title": "Advanced Search Filters",
+      "type": "object",
+      "description": "Advanced filtering options to extract specific content",
+      "editor": "json",
+      "properties": {
+        "dateRange": {
+          "title": "Date Range Filter",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "startDate": {
+              "type": "string",
+              "format": "date",
+              "description": "Start date (YYYY-MM-DD)"
+            },
+            "endDate": {
+              "type": "string",
+              "format": "date",
+              "description": "End date (YYYY-MM-DD)"
+            }
+          }
+        },
+        "engagement": {
+          "title": "Engagement Filters",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "minLikes": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum number of likes"
+            },
+            "maxLikes": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Maximum number of likes"
+            },
+            "minComments": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum number of comments"
+            },
+            "minEngagementRate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Minimum engagement rate (0-1)"
+            }
+          }
+        },
+        "content": {
+          "title": "Content Filters",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "keywords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Keywords that must be present"
+            },
+            "excludeKeywords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Keywords to exclude"
+            },
+            "minLength": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum content length"
+            },
+            "hasMedia": {
+              "type": "boolean",
+              "description": "Only posts with media attachments"
+            }
+          }
+        },
+        "authors": {
+          "title": "Author Filters",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "includeAuthors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Only posts from these authors"
+            },
+            "excludeAuthors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Exclude posts from these authors"
+            }
+          }
+        },
+        "sorting": {
+          "title": "Sorting Options",
+          "type": "object",
+          "properties": {
+            "sortBy": {
+              "type": "string",
+              "enum": ["date", "likes", "comments", "engagement", "alphabetical"],
+              "default": "date",
+              "description": "Sort posts by"
+            },
+            "sortOrder": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "desc",
+              "description": "Sort order"
+            }
+          }
+        }
+      }
+    },
+    "searchPresets": {
+      "title": "Search Presets",
+      "type": "string",
+      "description": "Quick filter presets for common use cases",
+      "editor": "select",
+      "enum": ["none", "high-engagement", "recent-posts", "popular-discussions", "trending-content"],
+      "enumTitles": [
+        "No preset (custom filters)",
+        "High Engagement (50+ likes, 10+ comments)",
+        "Recent Posts (last 30 days)",
+        "Popular Discussions (25+ likes, 5+ comments)",
+        "Trending Content (high engagement + recent)"
+      ],
+      "default": "none"
     }
   },
   "required": ["startUrls", "cookies"]

@@ -21,6 +21,7 @@ import {
     extractUserInfo
 } from './utils/auth.js';
 import { validateInput } from './utils/validators.js';
+import { processAdvancedFilters } from './utils/filters.js';
 
 export class SkoolScraper {
     constructor(input) {
@@ -196,10 +197,38 @@ export class SkoolScraper {
 
             logApiProgress('GET_CONTENT_FROM_COMMUNITY', `stateItems counter: ${posts.length} maxItems ${maxItems}`);
 
-            // Save processed posts
+            // Apply advanced filters if configured
+            let finalPosts = processedPosts;
+            let filterAnalytics = null;
+
             if (processedPosts.length > 0) {
-                await Actor.pushData(processedPosts);
-                console.log(`Saved ${processedPosts.length} posts to dataset`);
+                const filterResult = processAdvancedFilters(processedPosts, this.input);
+                finalPosts = filterResult.posts;
+                filterAnalytics = filterResult.analytics;
+
+                // Log filter results
+                if (filterAnalytics && filterAnalytics.summary.filteredCount !== filterAnalytics.summary.originalCount) {
+                    console.log(`Filters applied: ${filterAnalytics.summary.originalCount} → ${filterAnalytics.summary.filteredCount} posts`);
+                }
+            }
+
+            // Save processed posts
+            if (finalPosts.length > 0) {
+                // Add filter analytics to each post
+                const postsWithAnalytics = finalPosts.map(post => ({
+                    ...post,
+                    filterAnalytics: filterAnalytics ? {
+                        filtersApplied: filterAnalytics.summary.filtersApplied,
+                        originalCount: filterAnalytics.summary.originalCount,
+                        filteredCount: filterAnalytics.summary.filteredCount
+                    } : null
+                }));
+
+                await Actor.pushData(postsWithAnalytics);
+                console.log(`Saved ${finalPosts.length} posts to dataset`);
+                
+                // Update stats with filtered count
+                this.stats.posts = this.stats.posts - processedPosts.length + finalPosts.length;
             }
 
             // Handle pagination if needed and not reached max items
