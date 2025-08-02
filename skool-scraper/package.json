@@ -22,7 +22,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "apify": "^3.1.10",
-    "puppeteer": "^21.5.2",
+    "puppeteer": "^22.8.2",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
