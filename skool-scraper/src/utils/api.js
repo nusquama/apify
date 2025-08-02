@@ -248,15 +248,22 @@ export function parseSkoolApiResponse(jsonResponse) {
  * @param {Object} post - Post object from API
  * @returns {Object} Normalized post data
  */
-export function extractPostData(post) {
+export function extractPostData(postWrapper) {
     try {
         // Debug: Let's see the actual post structure
-        console.log('Post structure keys:', Object.keys(post));
-        if (post.metadata) {
-            console.log('Post metadata keys:', Object.keys(post.metadata));
-        }
-        if (post.user) {
-            console.log('Post user keys:', Object.keys(post.user));
+        console.log('Post structure keys:', Object.keys(postWrapper));
+        
+        // Handle nested structure: { post: { actual post data } }
+        const post = postWrapper.post || postWrapper;
+        
+        if (post && Object.keys(post).length > 1) {
+            console.log('Inner post keys:', Object.keys(post));
+            if (post.metadata) {
+                console.log('Post metadata keys:', Object.keys(post.metadata));
+            }
+            if (post.user) {
+                console.log('Post user keys:', Object.keys(post.user));
+            }
         }
 
         // Extract data according to real Skool API structure
