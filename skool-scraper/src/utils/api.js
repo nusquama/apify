@@ -180,8 +180,10 @@ export function parseSkoolApiResponse(jsonResponse) {
         // Try multiple possible locations for posts data
         let posts = [];
         
-        // Check common locations for posts
-        if (pageProps.posts) {
+        // Check common locations for posts - SKOOL USES postTrees!
+        if (pageProps.postTrees) {
+            posts = pageProps.postTrees;
+        } else if (pageProps.posts) {
             posts = pageProps.posts;
         } else if (pageProps.items) {
             posts = pageProps.items;
@@ -196,11 +198,13 @@ export function parseSkoolApiResponse(jsonResponse) {
         }
 
         console.log(`Found ${posts.length} posts in API response`);
+        console.log(`Total from API: ${pageProps.total || 'unknown'}`);
         
         return {
             posts: posts || [],
             totalPages: pageProps.totalPages || pageProps.maxPage || 0,
             totalUsers: pageProps.totalUsers || pageProps.memberCount || pageProps.membersCount || 0,
+            totalItems: pageProps.total || 0,
             buildId: data.buildId,
             community: pageProps.community || pageProps.group || pageProps.groupData || {},
             hasNextPage: pageProps.hasNextPage || pageProps.hasMore || false,
