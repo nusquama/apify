@@ -366,12 +366,64 @@ export class FilterAnalytics {
 }
 
 /**
+ * Convert simple UI inputs to advanced filter structure
+ */
+function buildFiltersFromSimpleInputs(input) {
+    const filters = {};
+    
+    // Convert simple fields to complex filter structure
+    if (input.minLikes > 0 || input.minComments > 0) {
+        filters.engagement = {
+            enabled: true,
+            minLikes: input.minLikes || 0,
+            minComments: input.minComments || 0
+        };
+    }
+    
+    if (input.keywordFilter && input.keywordFilter.trim()) {
+        const keywords = input.keywordFilter.split(',').map(k => k.trim()).filter(k => k);
+        if (keywords.length > 0) {
+            filters.content = filters.content || {};
+            filters.content.enabled = true;
+            filters.content.keywords = keywords;
+        }
+    }
+    
+    if (input.excludeKeywords && input.excludeKeywords.trim()) {
+        const excludeKeywords = input.excludeKeywords.split(',').map(k => k.trim()).filter(k => k);
+        if (excludeKeywords.length > 0) {
+            filters.content = filters.content || {};
+            filters.content.enabled = true;
+            filters.content.excludeKeywords = excludeKeywords;
+        }
+    }
+    
+    if (input.itemStartDate && input.itemStartDate.trim()) {
+        filters.dateRange = {
+            enabled: true,
+            startDate: input.itemStartDate,
+            endDate: new Date().toISOString().split('T')[0] // Today
+        };
+    }
+    
+    if (input.sortBy && input.sortBy !== 'date') {
+        filters.sorting = {
+            sortBy: input.sortBy,
+            sortOrder: 'desc'
+        };
+    }
+    
+    return filters;
+}
+
+/**
  * Main filter processor
  */
 export function processAdvancedFilters(posts, input) {
-    let searchFilters = input.searchFilters || {};
+    // Build filters from simple UI inputs
+    let searchFilters = buildFiltersFromSimpleInputs(input);
     
-    // Apply preset if selected
+    // Apply preset if selected (overrides simple filters)
     if (input.searchPresets && input.searchPresets !== 'none') {
         const presetConfig = SearchPresets.getPresetConfig(input.searchPresets);
         searchFilters = { ...searchFilters, ...presetConfig };
@@ -403,7 +455,7 @@ export function processAdvancedFilters(posts, input) {
     console.log(`Original posts: ${analytics.summary.originalCount}`);
     console.log(`Filtered posts: ${analytics.summary.filteredCount}`);
     console.log(`Filter efficiency: ${Math.round(analytics.summary.filterEfficiency * 100)}%`);
-    console.log(`Filters applied: ${analytics.summary.filtersApplied.join(', ')}`);
+    console.log(`Applied filters: minLikes=${input.minLikes || 0}, minComments=${input.minComments || 0}, keywords=${input.keywordFilter || 'none'}`);
     console.log('========================');
 
     return {

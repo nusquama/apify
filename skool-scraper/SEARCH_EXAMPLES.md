@@ -1,4 +1,31 @@
-# 🔍 Search Filter Examples
+# 🔍 User Interface Guide
+
+## Simple Filter Fields
+
+The actor now has an intuitive interface with individual fields instead of complex JSON. Here's how to use each field:
+
+### Basic Extraction Settings
+- **Start URLs**: List of Skool community URLs
+- **Content Tab**: Choose "community" (posts) or "classroom" (courses)
+- **Include Comments**: Check to extract comments for each post
+- **Maximum Items**: How many posts to extract (1000 = reasonable default)
+
+### Date & Content Filters
+- **Only scrape newer than [date]**: Format: 2024-07-01 (only posts after this date)
+- **Comments Limit**: Max comments per post (20 = default)
+- **Include media files**: Check to include images/videos in output
+
+### Engagement Filters
+- **Minimum Likes Filter**: Only posts with X+ likes (0 = no filter)
+- **Minimum Comments Filter**: Only posts with X+ comments (0 = no filter)
+
+### Content Filters
+- **Keyword Filter**: Comma-separated keywords (e.g., "AI, automation, growth")
+- **Exclude Keywords**: Skip posts with these words (e.g., "spam, promotional")
+
+### Results Organization
+- **Sort Results By**: How to order posts (Date, Likes, Comments, Total Engagement)
+- **Search Presets**: Quick filters for common scenarios
 
 ## Quick Search Presets
 

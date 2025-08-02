@@ -52,9 +52,10 @@ export class SkoolScraper {
 
             // Create proxy configuration if needed
             let proxyConfiguration = undefined;
-            if (this.input.proxyConfig?.useApifyProxy) {
+            const proxyConfig = this.input.proxy || this.input.proxyConfig;
+            if (proxyConfig?.useApifyProxy) {
                 proxyConfiguration = await Actor.createProxyConfiguration({
-                    groups: this.input.proxyConfig.apifyProxyGroups || ['RESIDENTIAL']
+                    groups: proxyConfig.apifyProxyGroups || ['RESIDENTIAL']
                 });
             }
 
@@ -301,7 +302,7 @@ export class SkoolScraper {
             }
 
             const processedComments = [];
-            const maxComments = this.input.commentsLimit || 50;
+            const maxComments = this.input.commentsLimit || 20;
 
             for (let i = 0; i < Math.min(commentsData.length, maxComments); i++) {
                 const comment = commentsData[i];

@@ -41,11 +41,8 @@ function validateInput(input) {
     // Validate tab selection
     validateTab(validated.tab);
 
-    // Validate search filters
-    validateSearchFilters(validated.searchFilters);
-
-    // Validate search presets
-    validateSearchPresets(validated.searchPresets);
+    // Validate simple filter inputs
+    validateSimpleFilters(validated);
 
     // Set defaults for optional parameters
     setDefaults(validated);
@@ -383,15 +380,61 @@ function validateSearchFilters(searchFilters) {
 }
 
 /**
- * Validates search presets
- * @param {string} searchPresets - Search preset name
+ * Validates simple filter inputs from UI
+ * @param {Object} input - Input object
  */
-function validateSearchPresets(searchPresets) {
-    if (!searchPresets) return;
-
-    const validPresets = ['none', 'high-engagement', 'recent-posts', 'popular-discussions', 'trending-content'];
-    if (!validPresets.includes(searchPresets)) {
-        throw new ValidationError(`searchPresets must be one of: ${validPresets.join(', ')}`);
+function validateSimpleFilters(input) {
+    // Validate itemStartDate
+    if (input.itemStartDate && !isValidDate(input.itemStartDate)) {
+        throw new ValidationError('itemStartDate must be in YYYY-MM-DD format');
+    }
+    
+    // Validate commentsLimit
+    if (input.commentsLimit !== undefined) {
+        const value = Number(input.commentsLimit);
+        if (isNaN(value) || value < 1 || value > 1000) {
+            throw new ValidationError('commentsLimit must be a number between 1 and 1000');
+        }
+        input.commentsLimit = value;
+    }
+    
+    // Validate minLikes
+    if (input.minLikes !== undefined) {
+        const value = Number(input.minLikes);
+        if (isNaN(value) || value < 0) {
+            throw new ValidationError('minLikes must be a non-negative number');
+        }
+        input.minLikes = value;
+    }
+    
+    // Validate minComments  
+    if (input.minComments !== undefined) {
+        const value = Number(input.minComments);
+        if (isNaN(value) || value < 0) {
+            throw new ValidationError('minComments must be a non-negative number');
+        }
+        input.minComments = value;
+    }
+    
+    // Validate sortBy
+    if (input.sortBy) {
+        const validSortBy = ['date', 'likes', 'comments', 'engagement'];
+        if (!validSortBy.includes(input.sortBy)) {
+            throw new ValidationError(`sortBy must be one of: ${validSortBy.join(', ')}`);
+        }
+    }
+    
+    // Validate searchPresets
+    if (input.searchPresets) {
+        const validPresets = ['none', 'high-engagement', 'recent-posts', 'popular-discussions', 'trending-content'];
+        if (!validPresets.includes(input.searchPresets)) {
+            throw new ValidationError(`searchPresets must be one of: ${validPresets.join(', ')}`);
+        }
+    }
+    
+    // Validate storeName pattern
+    if (input.storeName && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(input.storeName)) {
+        throw new ValidationError('storeName can only contain lowercase letters, numbers, and hyphens (not at start/end)');
     }
 }
 
@@ -422,7 +465,6 @@ export {
     validateCommentData,
     normalizeCookies,
     validateProxyConfig,
-    validateSearchFilters,
-    validateSearchPresets,
+    validateSimpleFilters,
     setDefaults
 };

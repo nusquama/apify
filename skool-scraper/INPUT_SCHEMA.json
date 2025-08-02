@@ -1,129 +1,171 @@
 {
-  "title": "Skool.com Community Scraper",
-  "description": "Extract posts, comments, and user data from Skool.com communities",
+  "title": "Skool.com Community Data Extractor",
+  "description": "Transform your Skool community insights into actionable data with advanced filtering and search capabilities",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "startUrls": {
-      "title": "Community URLs",
+      "title": "Start URLs",
       "type": "array",
-      "description": "List of Skool.com community URLs to scrape. You must be a member of these communities.",
+      "description": "URLs to start with.",
       "prefill": [
         { "url": "https://www.skool.com/ai-automation-mastery" }
       ],
       "editor": "requestListSources"
     },
     "tab": {
-      "title": "Content Tab",
+      "title": "What do you want to scrape from Skool.com Classroom or Community?",
       "type": "string",
-      "description": "Which tab to scrape from the community",
+      "description": "What do you want to scrape from Skool, Classroom or Community pages (tabs)?",
       "default": "community",
       "editor": "select",
       "enum": ["community", "classroom"],
       "enumTitles": ["Community (Posts & Discussions)", "Classroom (Courses & Modules)"]
     },
     "includeComments": {
-      "title": "Include Comments",
+      "title": "Include comments of each post(community) or course(classroom)",
       "type": "boolean",
-      "description": "Whether to extract comments for each post (may significantly increase scraping time)",
-      "default": true,
+      "description": "Set to true if you want to include comments on each post or course.",
+      "default": false,
+      "editor": "checkbox"
+    },
+    "itemStartDate": {
+      "title": "Only scrape posts/items newer than [date]",
+      "type": "string",
+      "description": "Format should be YYYY-MM-DD, e.g., 2022-02-20",
+      "editor": "textfield",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "commentsLimit": {
+      "title": "Comments Limit",
+      "type": "integer",
+      "description": "Maximum number of comments to scrape per post/item.",
+      "default": 20,
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "includeMedia": {
+      "title": "Include media files",
+      "type": "boolean",
+      "description": "Set to true if you want to include media files in the output.",
+      "default": false,
       "editor": "checkbox"
     },
     "maxItems": {
-      "title": "Maximum Items",
+      "title": "Set limit on how many items to scrape, default is 1000.",
       "type": "integer",
-      "description": "Maximum number of posts to scrape per community (0 = unlimited)",
+      "description": "Maximum number of items to scrape.",
       "default": 1000,
       "minimum": 0,
       "maximum": 50000
     },
     "maxConcurrency": {
-      "title": "Maximum Concurrency",
+      "title": "Max Concurrency",
       "type": "integer",
-      "description": "Maximum number of concurrent requests (higher = faster but more resource intensive)",
+      "description": "Maximum number of pages that can be processed at the same time.",
       "default": 10,
       "minimum": 1,
-      "maximum": 50
+      "maximum": 100
     },
     "minConcurrency": {
-      "title": "Minimum Concurrency",
+      "title": "Min Concurrency",
       "type": "integer",
-      "description": "Minimum number of concurrent requests",
+      "description": "Minimum number of pages that will be processed at the same time.",
       "default": 1,
       "minimum": 1,
       "maximum": 10
     },
     "maxRequestRetries": {
-      "title": "Request Retries",
+      "title": "Max Request Retries",
       "type": "integer",
-      "description": "Maximum number of retries for failed requests",
+      "description": "Number of times the crawler will retry a failed request before giving up.",
       "default": 3,
       "minimum": 0,
-      "maximum": 10
+      "maximum": 30
+    },
+    "storeName": {
+      "title": "Name your storage for downloads/items (deduplication and long-term retention), it can only contain letters 'a' through 'z', the digits '0' through '9', and the hyphen ('-') but only in the middle of the string (e.g. 'my-value-1')",
+      "type": "string",
+      "description": "Assign a custom name to the Key-Value Store where your scraped listings will be saved. This ensures: Data Deduplication, Persistent Storage, Project Management, Data Reuse. (If left blank, the default storage will be used with standard retention limits.)",
+      "default": "skool-data",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
     },
     "cookies": {
-      "title": "Authentication Cookies",
+      "title": "Cookies",
       "type": "array",
-      "description": "Cookies exported from your browser after logging into Skool.com. Required for accessing community content. Use Cookie-Editor or EditThisCookie browser extension.",
+      "description": "Cookie used to authorize actor with skool.com. Install EditThisCookie chrome extension. Login to your skool.com account. Click on the extension and export the skool.com cookies. Insert the contents here",
       "editor": "json"
     },
-    "proxyConfig": {
-      "title": "Proxy Configuration",
+    "proxy": {
+      "title": "Proxy configuration",
       "type": "object",
-      "description": "Proxy settings for reliable scraping and avoiding IP blocks",
+      "description": "Specifies proxy servers that will be used by the scraper in order to hide its origin. For details, see Proxy configuration in README.",
       "editor": "proxy",
       "default": {
-        "useApifyProxy": true,
-        "apifyProxyGroups": ["RESIDENTIAL"]
+        "useApifyProxy": true
       },
       "prefill": {
-        "useApifyProxy": true,
-        "apifyProxyGroups": ["RESIDENTIAL"]
+        "useApifyProxy": true
       }
     },
-    "requestDelay": {
-      "title": "Request Delay (seconds)",
-      "type": "integer",
-      "description": "Delay between requests to mimic human behavior and avoid rate limiting",
-      "default": 2,
-      "minimum": 1,
-      "maximum": 10
-    },
-    "scrollDelay": {
-      "title": "Scroll Delay (seconds)",
-      "type": "integer",
-      "description": "Delay between scroll actions during pagination",
-      "default": 2,
-      "minimum": 1,
-      "maximum": 5
-    },
-    "debug": {
-      "title": "Debug Mode",
-      "type": "boolean",
-      "description": "Enable verbose logging for troubleshooting",
-      "default": false,
-      "editor": "checkbox"
-    },
-    "searchFilters": {
-      "title": "Advanced Search Filters",
-      "type": "object",
-      "description": "Advanced filtering options to extract specific content. Use JSON format with nested objects for complex filtering.",
-      "editor": "json"
-    },
     "searchPresets": {
-      "title": "Search Presets",
+      "title": "Search Presets - Quick Filters",
       "type": "string",
-      "description": "Quick filter presets for common use cases",
+      "description": "Choose a preset to quickly filter content by engagement and recency",
       "editor": "select",
       "enum": ["none", "high-engagement", "recent-posts", "popular-discussions", "trending-content"],
       "enumTitles": [
-        "No preset (custom filters)",
+        "No preset (extract all)",
         "High Engagement (50+ likes, 10+ comments)",
         "Recent Posts (last 30 days)",
         "Popular Discussions (25+ likes, 5+ comments)",
         "Trending Content (high engagement + recent)"
       ],
       "default": "none"
+    },
+    "minLikes": {
+      "title": "Minimum Likes Filter",
+      "type": "integer",
+      "description": "Only extract posts with at least this many likes (0 = no filter)",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "minComments": {
+      "title": "Minimum Comments Filter", 
+      "type": "integer",
+      "description": "Only extract posts with at least this many comments (0 = no filter)",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "keywordFilter": {
+      "title": "Keyword Filter (comma-separated)",
+      "type": "string",
+      "description": "Only extract posts containing these keywords (e.g., 'AI, automation, growth'). Leave empty for no filter.",
+      "editor": "textfield"
+    },
+    "excludeKeywords": {
+      "title": "Exclude Keywords (comma-separated)",
+      "type": "string", 
+      "description": "Skip posts containing these keywords (e.g., 'spam, promotional'). Leave empty for no exclusions.",
+      "editor": "textfield"
+    },
+    "sortBy": {
+      "title": "Sort Results By",
+      "type": "string",
+      "description": "How to sort the extracted posts",
+      "editor": "select",
+      "enum": ["date", "likes", "comments", "engagement"],
+      "enumTitles": ["Date (newest first)", "Number of Likes", "Number of Comments", "Total Engagement"],
+      "default": "date"
+    },
+    "debug": {
+      "title": "Debug Mode",
+      "type": "boolean", 
+      "description": "Enable detailed logging for troubleshooting",
+      "default": false,
+      "editor": "checkbox"
     }
   },
   "required": ["startUrls", "cookies"]
