@@ -80,25 +80,39 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "title": "Cookie Name",
+            "type": "string",
+            "description": "Name of the cookie"
           },
           "value": {
-            "type": "string"
+            "title": "Cookie Value",
+            "type": "string",
+            "description": "Value of the cookie"
           },
           "domain": {
-            "type": "string"
+            "title": "Domain",
+            "type": "string",
+            "description": "Domain for the cookie (e.g., .skool.com)"
           },
           "path": {
-            "type": "string"
+            "title": "Path",
+            "type": "string",
+            "description": "Path for the cookie (usually /)"
           },
           "secure": {
-            "type": "boolean"
+            "title": "Secure",
+            "type": "boolean",
+            "description": "Whether the cookie is secure (HTTPS only)"
           },
           "httpOnly": {
-            "type": "boolean"
+            "title": "HTTP Only",
+            "type": "boolean",
+            "description": "Whether the cookie is HTTP only"
           },
           "sameSite": {
+            "title": "SameSite",
             "type": "string",
+            "description": "SameSite attribute for the cookie",
             "enum": ["Strict", "Lax", "None"]
           }
         },
