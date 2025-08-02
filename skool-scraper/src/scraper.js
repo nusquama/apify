@@ -1,5 +1,5 @@
 import { Actor } from 'apify';
-import { PuppeteerCrawler, launchPuppeteer } from 'crawlee';
+import { PuppeteerCrawler } from 'crawlee';
 import { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } from './config/selectors.js';
 import { setupAuthentication, checkCommunityAccess } from './utils/auth.js';
 import { parsePostData, extractCommentsForPost } from './utils/parsers.js';
@@ -12,8 +12,7 @@ import { validatePostData } from './utils/validators.js';
 class SkoolScraper {
     constructor(input) {
         this.input = input;
-        this.browser = null;
-        this.page = null;
+        this.crawler = null;
         this.stats = {
             totalPosts: 0,
             totalComments: 0,
@@ -23,125 +22,115 @@ class SkoolScraper {
     }
 
     /**
-     * Initializes the scraper with browser and authentication
+     * Initializes the scraper with PuppeteerCrawler
      */
     async initialize() {
         try {
             console.log('Initializing Skool scraper...');
 
-            // Launch browser with appropriate configuration using Crawlee's launchPuppeteer
-            // This automatically handles browser installation and proxy configuration
-            this.browser = await launchPuppeteer({
-                launchOptions: {
-                    headless: true,
-                    args: [
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage',
-                        '--disable-accelerated-2d-canvas',
-                        '--no-first-run',
-                        '--no-zygote',
-                        '--disable-gpu',
-                        '--disable-web-security',
-                        '--disable-features=site-per-process'
-                    ]
+            // Initialize PuppeteerCrawler which handles browser launching automatically
+            this.crawler = new PuppeteerCrawler({
+                // Browser launch configuration
+                launchContext: {
+                    launchOptions: {
+                        headless: true,
+                        args: [
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-accelerated-2d-canvas',
+                            '--no-first-run',
+                            '--no-zygote',
+                            '--disable-gpu',
+                            '--disable-web-security',
+                            '--disable-features=site-per-process'
+                        ]
+                    },
+                    useChrome: false,
+                    useIncognitoPages: true
                 },
-                proxyUrl: this.input.proxyConfig?.useApifyProxy ? undefined : this.input.proxyConfig?.proxyUrl,
-                useChrome: false, // Use Chromium instead of full Chrome
-                useIncognitoPages: true, // Use incognito for better isolation
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                
+                // Proxy configuration
+                proxyConfiguration: this.input.proxyConfig?.useApifyProxy ? 
+                    Actor.createProxyConfiguration({
+                        groups: this.input.proxyConfig.apifyProxyGroups || ['RESIDENTIAL']
+                    }) : undefined,
+
+                // Request handler - this will be called for each URL
+                requestHandler: async ({ request, page }) => {
+                    // This is where we'll handle individual community scraping
+                    await this.handleCommunityRequest(request, page);
+                },
+
+                // Error handler
+                failedRequestHandler: async ({ request, error }) => {
+                    console.error(`Request ${request.url} failed: ${error.message}`);
+                    this.stats.errors.push(`URL ${request.url}: ${error.message}`);
+                },
+
+                // Crawler configuration
+                maxConcurrency: this.input.maxConcurrency || 10,
+                requestHandlerTimeoutSecs: 300, // 5 minutes timeout per request
+                maxRequestRetries: this.input.maxRequestRetries || 3
             });
-
-            // Create new page
-            this.page = await this.browser.newPage();
-
-            // Set viewport
-            await this.page.setViewport({ width: 1920, height: 1080 });
-
-            // Setup request interception for optimization
-            await this.setupRequestInterception();
-
-            // Setup authentication
-            await setupAuthentication(this.page, this.input.cookies);
 
             console.log('Scraper initialization completed');
 
         } catch (error) {
-            await this.cleanup();
             throw new Error(`Scraper initialization failed: ${error.message}`);
         }
     }
 
     /**
-     * Sets up request interception to block unnecessary resources
+     * Handles a single community request
+     * @param {Object} request - Crawlee request object
+     * @param {Object} page - Puppeteer page instance
      */
-    async setupRequestInterception() {
+    async handleCommunityRequest(request, page) {
         try {
-            await this.page.setRequestInterception(true);
+            console.log(`Processing community: ${request.url}`);
 
-            this.page.on('request', (request) => {
-                const resourceType = request.resourceType();
-                const url = request.url();
-
-                // Block unnecessary resources to improve performance
-                if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
-                    request.abort();
-                } else if (url.includes('analytics') || url.includes('tracking') || url.includes('ads')) {
-                    request.abort();
-                } else {
-                    request.continue();
-                }
-            });
-
-        } catch (error) {
-            console.warn(`Request interception setup failed: ${error.message}`);
-        }
-    }
-
-    /**
-     * Scrapes a single community
-     * @param {string} communityUrl - URL of the community to scrape
-     * @returns {Promise<Array>} Array of scraped posts
-     */
-    async scrapeCommunity(communityUrl) {
-        try {
-            console.log(`Starting to scrape community: ${communityUrl}`);
+            // Setup authentication
+            await setupAuthentication(page, this.input.cookies);
 
             // Check community access
-            const hasAccess = await checkCommunityAccess(this.page, communityUrl);
+            const hasAccess = await checkCommunityAccess(page, request.url);
             if (!hasAccess) {
-                throw new Error(`No access to community: ${communityUrl}`);
+                throw new Error(`No access to community: ${request.url}`);
             }
 
             // Navigate to the appropriate tab
             const targetUrl = this.input.tab === 'classroom' ? 
-                `${communityUrl}/classroom` : communityUrl;
+                `${request.url}/classroom` : request.url;
 
-            await this.page.goto(targetUrl, {
+            await page.goto(targetUrl, {
                 waitUntil: WAIT_CONDITIONS.pageLoad,
                 timeout: 30000
             });
 
             // Wait for content to load
-            await this.waitForCommunityContent();
+            await this.waitForCommunityContent(page);
 
             // Handle pagination to load all posts
-            const itemCount = await this.handlePagination();
+            const itemCount = await this.handlePagination(page);
             console.log(`Loaded ${itemCount} posts for pagination`);
 
             // Extract all posts
-            const posts = await this.extractPosts();
+            const posts = await this.extractPosts(page);
             
+            // Store results
+            if (posts.length > 0) {
+                await Actor.pushData(posts);
+                console.log(`Stored ${posts.length} posts from ${request.url}`);
+            }
+
             // Update statistics
             this.stats.totalPosts += posts.length;
             this.stats.communitiesProcessed++;
 
-            console.log(`Successfully scraped ${posts.length} posts from ${communityUrl}`);
-            return posts;
-
         } catch (error) {
-            this.stats.errors.push(`Community ${communityUrl}: ${error.message}`);
-            console.error(`Failed to scrape community ${communityUrl}: ${error.message}`);
+            this.stats.errors.push(`Community ${request.url}: ${error.message}`);
+            console.error(`Failed to process community ${request.url}: ${error.message}`);
             throw error;
         }
     }
@@ -149,17 +138,17 @@ class SkoolScraper {
     /**
      * Waits for community content to load
      */
-    async waitForCommunityContent() {
+    async waitForCommunityContent(page) {
         try {
             // Wait for main content areas
             await Promise.race([
-                this.page.waitForSelector(SELECTORS.NAVIGATION.postsContainer, { timeout: 15000 }),
-                this.page.waitForSelector(SELECTORS.POSTS.postItem, { timeout: 15000 }),
-                this.page.waitForSelector(SELECTORS.NAVIGATION.communityTab, { timeout: 15000 })
+                page.waitForSelector(SELECTORS.NAVIGATION.postsContainer, { timeout: 15000 }),
+                page.waitForSelector(SELECTORS.POSTS.postItem, { timeout: 15000 }),
+                page.waitForSelector(SELECTORS.NAVIGATION.communityTab, { timeout: 15000 })
             ]);
 
             // Additional wait for dynamic content
-            await this.page.waitForTimeout(3000);
+            await page.waitForTimeout(3000);
 
         } catch (error) {
             console.warn(`Content loading timeout - proceeding anyway: ${error.message}`);
@@ -168,12 +157,13 @@ class SkoolScraper {
 
     /**
      * Handles pagination based on input configuration
+     * @param {Object} page - Puppeteer page instance
      * @returns {Promise<number>} Number of items loaded
      */
-    async handlePagination() {
+    async handlePagination(page) {
         try {
             if (this.input.smartScrolling) {
-                const result = await smartScroll(this.page, {
+                const result = await smartScroll(page, {
                     maxItems: this.input.maxItems,
                     itemSelector: SELECTORS.POSTS.postItem,
                     scrollDelay: this.input.scrollDelay,
@@ -182,7 +172,7 @@ class SkoolScraper {
                 return result.itemCount;
             } else {
                 return await handleInfiniteScroll(
-                    this.page,
+                    page,
                     this.input.maxItems,
                     this.input.scrollDelay,
                     SELECTORS.POSTS.postItem
@@ -196,11 +186,12 @@ class SkoolScraper {
 
     /**
      * Extracts all posts from the current page
+     * @param {Object} page - Puppeteer page instance
      * @returns {Promise<Array>} Array of post data
      */
-    async extractPosts() {
+    async extractPosts(page) {
         try {
-            const postElements = await this.page.$$(SELECTORS.POSTS.postItem);
+            const postElements = await page.$$(SELECTORS.POSTS.postItem);
             const posts = [];
             const batchSize = 10; // Process posts in batches to manage memory
 
@@ -208,17 +199,12 @@ class SkoolScraper {
 
             for (let i = 0; i < postElements.length; i += batchSize) {
                 const batch = postElements.slice(i, i + batchSize);
-                const batchPosts = await this.processBatch(batch, i);
+                const batchPosts = await this.processBatch(batch, page, i);
                 posts.push(...batchPosts);
 
                 // Apply delay between batches to avoid rate limiting
                 if (i > 0 && this.input.requestDelay > 0) {
-                    await this.page.waitForTimeout(this.input.requestDelay * 1000);
-                }
-
-                // Memory cleanup for large batches
-                if (i % 50 === 0 && i > 0) {
-                    await this.performMemoryCleanup();
+                    await page.waitForTimeout(this.input.requestDelay * 1000);
                 }
             }
 
@@ -233,10 +219,11 @@ class SkoolScraper {
     /**
      * Processes a batch of post elements
      * @param {Array} postElements - Array of post element handles
+     * @param {Object} page - Puppeteer page instance
      * @param {number} startIndex - Starting index for logging
      * @returns {Promise<Array>} Array of processed posts
      */
-    async processBatch(postElements, startIndex) {
+    async processBatch(postElements, page, startIndex) {
         const batchPosts = [];
 
         for (let j = 0; j < postElements.length; j++) {
@@ -249,12 +236,12 @@ class SkoolScraper {
                 }
 
                 // Extract basic post data
-                const postData = await parsePostData(postElement, this.page);
+                const postData = await parsePostData(postElement, page);
 
                 // Extract comments if requested
                 if (this.input.includeComments && postData.url) {
                     try {
-                        const comments = await extractCommentsForPost(this.page, postData.url);
+                        const comments = await extractCommentsForPost(page, postData.url);
                         postData.comments = comments;
                         this.stats.totalComments += comments.length;
                     } catch (commentError) {
@@ -262,6 +249,14 @@ class SkoolScraper {
                         postData.comments = [];
                     }
                 }
+
+                // Add scraping metadata
+                postData.scrapedAt = new Date().toISOString();
+                postData.scrapingConfig = {
+                    tab: this.input.tab,
+                    includeComments: this.input.includeComments,
+                    actorVersion: '1.0.0'
+                };
 
                 // Validate post data before adding
                 if (validatePostData(postData)) {
@@ -284,60 +279,25 @@ class SkoolScraper {
     }
 
     /**
-     * Performs memory cleanup
+     * Runs the scraper for all communities
+     * @returns {Promise<void>}
      */
-    async performMemoryCleanup() {
+    async run() {
         try {
-            await this.page.evaluate(() => {
-                if (window.gc) {
-                    window.gc();
-                }
-            });
-            
-            // Small delay to allow cleanup
-            await this.page.waitForTimeout(1000);
-            
-        } catch (error) {
-            console.debug(`Memory cleanup failed: ${error.message}`);
-        }
-    }
-
-    /**
-     * Scrapes multiple communities from the input URLs
-     * @returns {Promise<Array>} Array of all scraped posts
-     */
-    async scrapeAllCommunities() {
-        try {
-            const allPosts = [];
             const { startUrls } = this.input;
-
             console.log(`Starting to scrape ${startUrls.length} communities`);
 
-            for (let i = 0; i < startUrls.length; i++) {
-                const urlObj = startUrls[i];
-                try {
-                    const posts = await this.scrapeCommunity(urlObj.url);
-                    allPosts.push(...posts);
+            // Convert startUrls to Crawlee format
+            const requests = startUrls.map(urlObj => ({ url: urlObj.url }));
 
-                    // Delay between communities to avoid rate limiting
-                    if (i < startUrls.length - 1 && this.input.requestDelay > 0) {
-                        await this.page.waitForTimeout(this.input.requestDelay * 1000);
-                    }
-
-                } catch (communityError) {
-                    console.error(`Failed to scrape community ${urlObj.url}: ${communityError.message}`);
-                    // Continue with other communities
-                    continue;
-                }
-            }
+            // Run the crawler
+            await this.crawler.run(requests);
 
             // Log final statistics
             this.logFinalStats();
 
-            return allPosts;
-
         } catch (error) {
-            console.error(`Multi-community scraping failed: ${error.message}`);
+            console.error(`Scraping failed: ${error.message}`);
             throw error;
         }
     }
@@ -360,46 +320,11 @@ class SkoolScraper {
     }
 
     /**
-     * Handles errors during scraping with retry logic
-     * @param {Function} operation - Operation to retry
-     * @param {number} maxRetries - Maximum number of retries
-     * @returns {Promise<any>} Operation result
-     */
-    async handleWithRetry(operation, maxRetries = 3) {
-        let lastError;
-        
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                return await operation();
-            } catch (error) {
-                lastError = error;
-                console.warn(`Attempt ${attempt}/${maxRetries} failed: ${error.message}`);
-                
-                if (attempt < maxRetries) {
-                    const delayMs = Math.pow(2, attempt) * 1000; // Exponential backoff
-                    await this.page.waitForTimeout(delayMs);
-                }
-            }
-        }
-        
-        throw lastError;
-    }
-
-    /**
-     * Cleans up browser resources
+     * Cleanup method (not needed with PuppeteerCrawler as it handles cleanup automatically)
      */
     async cleanup() {
-        try {
-            if (this.page && !this.page.isClosed()) {
-                await this.page.close();
-            }
-            if (this.browser) {
-                await this.browser.close();
-            }
-            console.log('Browser cleanup completed');
-        } catch (error) {
-            console.error(`Cleanup failed: ${error.message}`);
-        }
+        // PuppeteerCrawler handles browser cleanup automatically
+        console.log('Crawler cleanup completed automatically');
     }
 }
 

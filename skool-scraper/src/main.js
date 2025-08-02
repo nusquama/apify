@@ -34,29 +34,21 @@ try {
             const scraper = new SkoolScraper(validatedInput);
             
             try {
-                // Initialize browser and authentication
+                // Initialize the PuppeteerCrawler
                 await scraper.initialize();
 
                 // Start scraping all communities
                 console.log('Starting scraping process...');
-                const allPosts = await scraper.scrapeAllCommunities();
-
-                // Store results in dataset
-                if (allPosts.length > 0) {
-                    await storeResults(dataset, allPosts, validatedInput);
-                    console.log(`Successfully stored ${allPosts.length} posts in dataset`);
-                } else {
-                    console.warn('No posts were scraped - check community access and URLs');
-                }
+                await scraper.run();
 
                 // Log completion summary
-                logCompletionSummary(allPosts, scraper.stats);
+                logCompletionSummary([], scraper.stats);
 
             } catch (scrapingError) {
                 await handleScrapingError(scrapingError);
                 throw scrapingError;
             } finally {
-                // Always cleanup browser resources
+                // Cleanup (automatic with PuppeteerCrawler)
                 await scraper.cleanup();
             }
 
