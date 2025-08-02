@@ -85,7 +85,7 @@ const WAIT_CONDITIONS = {
     contentLoad: { timeout: 15000 },
     scrollWait: 2000,
     requestDelay: 2000,
-    authTimeout: 10000
+    authTimeout: 30000
 };
 
 // URL patterns and validation

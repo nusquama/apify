@@ -1,32 +1,53 @@
-import { Actor } from 'apify';
-import { PuppeteerCrawler } from 'crawlee';
-import { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } from './config/selectors.js';
-import { setupAuthentication, checkCommunityAccess } from './utils/auth.js';
-import { parsePostData, extractCommentsForPost } from './utils/parsers.js';
-import { handleInfiniteScroll, smartScroll } from './utils/pagination.js';
-import { validatePostData } from './utils/validators.js';
-
 /**
- * Main scraper class for Skool.com communities
+ * Skool.com scraper using CheerioCrawler and JSON API endpoints
+ * Refactored from PuppeteerCrawler for better performance and reliability
  */
-class SkoolScraper {
+
+import { Actor } from 'apify';
+import { CheerioCrawler, createCheerioRouter } from 'crawlee';
+import { 
+    extractBuildId, 
+    extractCommunityName, 
+    buildApiUrl, 
+    buildClassroomApiUrl,
+    parseSkoolApiResponse,
+    extractPostData,
+    logApiProgress,
+    hasCommunitytAccess
+} from './utils/api.js';
+import { 
+    setupAuthenticationHeaders, 
+    validateSkoolCookies,
+    extractUserInfo
+} from './utils/auth.js';
+import { validateInput } from './utils/validators.js';
+
+export class SkoolScraper {
     constructor(input) {
         this.input = input;
         this.crawler = null;
+        this.authHeaders = null;
+        this.buildId = null;
         this.stats = {
-            totalPosts: 0,
-            totalComments: 0,
-            communitiesProcessed: 0,
-            errors: []
+            processed: 0,
+            errors: [],
+            communities: 0,
+            posts: 0
         };
     }
 
     /**
-     * Initializes the scraper with PuppeteerCrawler
+     * Initializes the scraper with CheerioCrawler
      */
     async initialize() {
         try {
-            console.log('Initializing Skool scraper...');
+            console.log('Initializing Skool scraper with CheerioCrawler...');
+
+            // Validate cookies
+            validateSkoolCookies(this.input.cookies);
+
+            // Setup authentication headers
+            this.authHeaders = setupAuthenticationHeaders(this.input.cookies);
 
             // Create proxy configuration if needed
             let proxyConfiguration = undefined;
@@ -36,47 +57,31 @@ class SkoolScraper {
                 });
             }
 
-            // Initialize PuppeteerCrawler which handles browser launching automatically
-            this.crawler = new PuppeteerCrawler({
-                // Browser launch configuration
-                launchContext: {
-                    launchOptions: {
-                        headless: true,
-                        args: [
-                            '--no-sandbox',
-                            '--disable-setuid-sandbox',
-                            '--disable-dev-shm-usage',
-                            '--disable-accelerated-2d-canvas',
-                            '--no-first-run',
-                            '--no-zygote',
-                            '--disable-gpu',
-                            '--disable-web-security',
-                            '--disable-features=site-per-process'
-                        ]
-                    },
-                    useChrome: false,
-                    useIncognitoPages: true
-                },
-                
-                // Proxy configuration
+            // Create router for handling different request types
+            const router = createCheerioRouter();
+
+            // Main data fetching handler
+            router.addHandler('fetchMainData', async ({ request, $, body }) => {
+                await this.handleMainDataRequest(request, $, body);
+            });
+
+            // API data handler
+            router.addHandler('getContentFromCommunity', async ({ request, json }) => {
+                await this.handleApiRequest(request, json);
+            });
+
+            // Initialize CheerioCrawler
+            this.crawler = new CheerioCrawler({
                 proxyConfiguration,
-
-                // Request handler - this will be called for each URL
-                requestHandler: async ({ request, page }) => {
-                    // This is where we'll handle individual community scraping
-                    await this.handleCommunityRequest(request, page);
-                },
-
-                // Error handler
+                requestHandler: router,
                 failedRequestHandler: async ({ request, error }) => {
                     console.error(`Request ${request.url} failed: ${error.message}`);
                     this.stats.errors.push(`URL ${request.url}: ${error.message}`);
                 },
-
-                // Crawler configuration
                 maxConcurrency: this.input.maxConcurrency || 10,
-                requestHandlerTimeoutSecs: 300, // 5 minutes timeout per request
-                maxRequestRetries: this.input.maxRequestRetries || 3
+                maxRequestRetries: this.input.maxRequestRetries || 3,
+                requestHandlerTimeoutSecs: 300,
+                additionalMimeTypes: ['application/json']
             });
 
             console.log('Scraper initialization completed');
@@ -87,219 +92,240 @@ class SkoolScraper {
     }
 
     /**
-     * Handles a single community request
-     * @param {Object} request - Crawlee request object
-     * @param {Object} page - Puppeteer page instance
+     * Handles main data request to extract buildId and user info
      */
-    async handleCommunityRequest(request, page) {
+    async handleMainDataRequest(request, $, body) {
         try {
-            console.log(`Processing community: ${request.url}`);
+            const url = request.url;
+            logApiProgress('fetchMainData', `${url} ${request.response?.statusCode || 'unknown'}`);
 
-            // Setup authentication
-            await setupAuthentication(page, this.input.cookies);
-
-            // Check community access
-            const hasAccess = await checkCommunityAccess(page, request.url);
-            if (!hasAccess) {
-                throw new Error(`No access to community: ${request.url}`);
+            // Extract buildId from HTML
+            this.buildId = extractBuildId(body);
+            if (!this.buildId) {
+                throw new Error('Could not extract buildId from page');
             }
 
-            // Navigate to the appropriate tab
-            const targetUrl = this.input.tab === 'classroom' ? 
-                `${request.url}/classroom` : request.url;
-
-            await page.goto(targetUrl, {
-                waitUntil: WAIT_CONDITIONS.pageLoad,
-                timeout: 30000
-            });
-
-            // Wait for content to load
-            await this.waitForCommunityContent(page);
-
-            // Handle pagination to load all posts
-            const itemCount = await this.handlePagination(page);
-            console.log(`Loaded ${itemCount} posts for pagination`);
-
-            // Extract all posts
-            const posts = await this.extractPosts(page);
-            
-            // Store results
-            if (posts.length > 0) {
-                await Actor.pushData(posts);
-                console.log(`Stored ${posts.length} posts from ${request.url}`);
+            // Extract user info for authentication verification
+            const userInfo = extractUserInfo(body);
+            if (userInfo.email) {
+                logApiProgress('fetchMainData', `Account detected, here is EMAIL: ${userInfo.email}`);
             }
 
-            // Update statistics
-            this.stats.totalPosts += posts.length;
-            this.stats.communitiesProcessed++;
-
-        } catch (error) {
-            this.stats.errors.push(`Community ${request.url}: ${error.message}`);
-            console.error(`Failed to process community ${request.url}: ${error.message}`);
-            throw error;
-        }
-    }
-
-    /**
-     * Waits for community content to load
-     */
-    async waitForCommunityContent(page) {
-        try {
-            // Wait for main content areas
-            await Promise.race([
-                page.waitForSelector(SELECTORS.NAVIGATION.postsContainer, { timeout: 15000 }),
-                page.waitForSelector(SELECTORS.POSTS.postItem, { timeout: 15000 }),
-                page.waitForSelector(SELECTORS.NAVIGATION.communityTab, { timeout: 15000 })
-            ]);
-
-            // Additional wait for dynamic content
-            await page.waitForTimeout(3000);
-
-        } catch (error) {
-            console.warn(`Content loading timeout - proceeding anyway: ${error.message}`);
-        }
-    }
-
-    /**
-     * Handles pagination based on input configuration
-     * @param {Object} page - Puppeteer page instance
-     * @returns {Promise<number>} Number of items loaded
-     */
-    async handlePagination(page) {
-        try {
-            if (this.input.smartScrolling) {
-                const result = await smartScroll(page, {
-                    maxItems: this.input.maxItems,
-                    itemSelector: SELECTORS.POSTS.postItem,
-                    scrollDelay: this.input.scrollDelay,
-                    adaptiveDelay: true
-                });
-                return result.itemCount;
-            } else {
-                return await handleInfiniteScroll(
-                    page,
-                    this.input.maxItems,
-                    this.input.scrollDelay,
-                    SELECTORS.POSTS.postItem
-                );
-            }
-        } catch (error) {
-            console.error(`Pagination failed: ${error.message}`);
-            throw error;
-        }
-    }
-
-    /**
-     * Extracts all posts from the current page
-     * @param {Object} page - Puppeteer page instance
-     * @returns {Promise<Array>} Array of post data
-     */
-    async extractPosts(page) {
-        try {
-            const postElements = await page.$$(SELECTORS.POSTS.postItem);
-            const posts = [];
-            const batchSize = 10; // Process posts in batches to manage memory
-
-            console.log(`Found ${postElements.length} posts to extract`);
-
-            for (let i = 0; i < postElements.length; i += batchSize) {
-                const batch = postElements.slice(i, i + batchSize);
-                const batchPosts = await this.processBatch(batch, page, i);
-                posts.push(...batchPosts);
-
-                // Apply delay between batches to avoid rate limiting
-                if (i > 0 && this.input.requestDelay > 0) {
-                    await page.waitForTimeout(this.input.requestDelay * 1000);
-                }
+            // Extract community name from URL
+            const communityName = extractCommunityName(url);
+            if (!communityName) {
+                throw new Error('Could not extract community name from URL');
             }
 
-            return posts;
+            // Get total users count from HTML if available
+            const totalUsersMatch = body.match(/memberCount['"]\s*:\s*(\d+)/i) ||
+                                   body.match(/totalUsers['"]\s*:\s*(\d+)/i);
+            const totalUsers = totalUsersMatch ? parseInt(totalUsersMatch[1]) : 0;
 
-        } catch (error) {
-            console.error(`Post extraction failed: ${error.message}`);
-            throw error;
-        }
-    }
+            logApiProgress('fetchMainData', `totalPages and totalUsers: { totalUsers: ${totalUsers}, totalPages: 0, counter: 1 }`);
+            logApiProgress('fetchMainData', `BUILD ID: { buildId: '${this.buildId}', group: '${communityName}' }`);
 
-    /**
-     * Processes a batch of post elements
-     * @param {Array} postElements - Array of post element handles
-     * @param {Object} page - Puppeteer page instance
-     * @param {number} startIndex - Starting index for logging
-     * @returns {Promise<Array>} Array of processed posts
-     */
-    async processBatch(postElements, page, startIndex) {
-        const batchPosts = [];
+            // Build API URL for community data
+            const apiUrl = this.input.tab === 'classroom' 
+                ? buildClassroomApiUrl(this.buildId, communityName, { page: 1 })
+                : buildApiUrl(this.buildId, communityName, { page: 1 });
 
-        for (let j = 0; j < postElements.length; j++) {
-            try {
-                const postElement = postElements[j];
-                const postIndex = startIndex + j + 1;
-
-                if (this.input.debug) {
-                    console.debug(`Processing post ${postIndex}/${postElements.length}`);
-                }
-
-                // Extract basic post data
-                const postData = await parsePostData(postElement, page);
-
-                // Extract comments if requested
-                if (this.input.includeComments && postData.url) {
-                    try {
-                        const comments = await extractCommentsForPost(page, postData.url);
-                        postData.comments = comments;
-                        this.stats.totalComments += comments.length;
-                    } catch (commentError) {
-                        console.warn(`Failed to extract comments for post ${postData.id}: ${commentError.message}`);
-                        postData.comments = [];
-                    }
-                }
-
-                // Add scraping metadata
-                postData.scrapedAt = new Date().toISOString();
-                postData.scrapingConfig = {
+            // Queue API request
+            await this.crawler.addRequests([{
+                url: apiUrl,
+                label: 'getContentFromCommunity',
+                headers: this.authHeaders,
+                userData: {
+                    buildId: this.buildId,
+                    communityName,
+                    totalUsers,
+                    originalUrl: url,
                     tab: this.input.tab,
-                    includeComments: this.input.includeComments,
-                    actorVersion: '1.0.0'
+                    currentPage: 1
+                }
+            }]);
+
+        } catch (error) {
+            console.error(`Failed to process main data request: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Handles API requests for community content
+     */
+    async handleApiRequest(request, json) {
+        try {
+            const { buildId, communityName, originalUrl, tab, currentPage = 1 } = request.userData;
+            
+            logApiProgress('GET_CONTENT_FROM_COMMUNITY', 
+                `entering... ${request.url} ${request.response?.statusCode || 'unknown'} originalUrl: ${originalUrl}`);
+
+            // Parse API response
+            const apiData = parseSkoolApiResponse(JSON.stringify(json));
+            
+            if (!hasCommunitytAccess(apiData)) {
+                throw new Error(`No access to community: ${originalUrl}`);
+            }
+
+            const posts = apiData.posts || [];
+            logApiProgress('GET_CONTENT_FROM_COMMUNITY', `1.posts number: ${posts.length}`);
+            logApiProgress('GET_CONTENT_FROM_COMMUNITY', `2.posts number: ${posts.length}`);
+
+            // Process posts
+            const processedPosts = [];
+            let itemCount = 0;
+            const maxItems = this.input.maxItems || 30;
+
+            for (const post of posts) {
+                if (itemCount >= maxItems) {
+                    logApiProgress('GET_CONTENT_FROM_COMMUNITY', `maxItems reached: ${posts.length}`);
+                    break;
+                }
+
+                const processedPost = await this.processPost(post, communityName, originalUrl);
+                if (processedPost) {
+                    processedPosts.push(processedPost);
+                    itemCount++;
+                    this.stats.posts++;
+                }
+            }
+
+            logApiProgress('GET_CONTENT_FROM_COMMUNITY', `stateItems counter: ${posts.length} maxItems ${maxItems}`);
+
+            // Save processed posts
+            if (processedPosts.length > 0) {
+                await Actor.pushData(processedPosts);
+                console.log(`Saved ${processedPosts.length} posts to dataset`);
+            }
+
+            // Handle pagination if needed and not reached max items
+            if (apiData.hasNextPage && itemCount < maxItems) {
+                const nextPage = currentPage + 1;
+                const nextApiUrl = this.input.tab === 'classroom' 
+                    ? buildClassroomApiUrl(buildId, communityName, { page: nextPage })
+                    : buildApiUrl(buildId, communityName, { page: nextPage });
+
+                await this.crawler.addRequests([{
+                    url: nextApiUrl,
+                    label: 'getContentFromCommunity',
+                    headers: this.authHeaders,
+                    userData: {
+                        ...request.userData,
+                        currentPage: nextPage
+                    }
+                }]);
+            }
+
+            this.stats.processed += processedPosts.length;
+
+        } catch (error) {
+            console.error(`Failed to process API request: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Processes a single post from API data
+     */
+    async processPost(postData, communityName, originalUrl) {
+        try {
+            const post = extractPostData(postData);
+            if (!post) {
+                return null;
+            }
+
+            // Add community context
+            post.community = {
+                name: communityName,
+                url: originalUrl,
+                tab: this.input.tab
+            };
+
+            // Process comments if requested
+            if (this.input.includeComments && postData.comments) {
+                post.comments = await this.processComments(postData.comments);
+            }
+
+            // Add metadata
+            post.scrapedAt = new Date().toISOString();
+            post.scrapedBy = 'skool-scraper';
+
+            return post;
+
+        } catch (error) {
+            console.error(`Error processing post: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Processes comments for a post
+     */
+    async processComments(commentsData) {
+        try {
+            if (!Array.isArray(commentsData)) {
+                return [];
+            }
+
+            const processedComments = [];
+            const maxComments = this.input.commentsLimit || 50;
+
+            for (let i = 0; i < Math.min(commentsData.length, maxComments); i++) {
+                const comment = commentsData[i];
+                
+                const processedComment = {
+                    id: comment.id,
+                    content: comment.content || comment.text,
+                    author: {
+                        id: comment.author?.id,
+                        name: comment.author?.name || comment.author?.displayName,
+                        avatar: comment.author?.avatar
+                    },
+                    createdAt: comment.createdAt || comment.created_at,
+                    likes: comment.likes || comment.likeCount || 0,
+                    replies: comment.replies || []
                 };
 
-                // Validate post data before adding
-                if (validatePostData(postData)) {
-                    batchPosts.push(postData);
-                } else {
-                    console.warn(`Invalid post data structure for post ${postIndex}, skipping`);
-                }
-
-            } catch (postError) {
-                console.warn(`Failed to process post ${startIndex + j + 1}: ${postError.message}`);
-                continue;
+                processedComments.push(processedComment);
             }
-        }
 
-        if (this.input.debug) {
-            console.debug(`Batch processed: ${batchPosts.length}/${postElements.length} posts successful`);
-        }
+            return processedComments;
 
-        return batchPosts;
+        } catch (error) {
+            console.error(`Error processing comments: ${error.message}`);
+            return [];
+        }
     }
 
     /**
-     * Runs the scraper for all communities
-     * @returns {Promise<void>}
+     * Runs the scraper
      */
     async run() {
         try {
-            const { startUrls } = this.input;
-            console.log(`Starting to scrape ${startUrls.length} communities`);
+            console.log('Starting scraping process...');
+            console.log(`Starting to scrape ${this.input.startUrls.length} communities`);
 
-            // Convert startUrls to Crawlee format
-            const requests = startUrls.map(urlObj => ({ url: urlObj.url }));
+            // Prepare start URLs with authentication headers
+            const requests = this.input.startUrls.map(urlObj => ({
+                url: urlObj.url,
+                label: 'fetchMainData',
+                headers: this.authHeaders,
+                userData: {
+                    originalUrl: urlObj.url
+                }
+            }));
 
-            // Run the crawler
+            // Start crawling
             await this.crawler.run(requests);
 
-            // Log final statistics
-            this.logFinalStats();
+            // Log final stats
+            console.log(`Scraping completed. Processed: ${this.stats.processed} items, Posts: ${this.stats.posts}, Errors: ${this.stats.errors.length}`);
+
+            if (this.stats.errors.length > 0) {
+                console.error('Errors encountered:');
+                this.stats.errors.forEach(error => console.error(`- ${error}`));
+            }
 
         } catch (error) {
             console.error(`Scraping failed: ${error.message}`);
@@ -308,29 +334,13 @@ class SkoolScraper {
     }
 
     /**
-     * Logs final scraping statistics
-     */
-    logFinalStats() {
-        console.log('=== SCRAPING COMPLETED ===');
-        console.log(`Communities processed: ${this.stats.communitiesProcessed}`);
-        console.log(`Total posts scraped: ${this.stats.totalPosts}`);
-        console.log(`Total comments scraped: ${this.stats.totalComments}`);
-        
-        if (this.stats.errors.length > 0) {
-            console.warn(`Errors encountered: ${this.stats.errors.length}`);
-            this.stats.errors.forEach(error => {
-                console.error(`- ${error}`);
-            });
-        }
-    }
-
-    /**
-     * Cleanup method (not needed with PuppeteerCrawler as it handles cleanup automatically)
+     * Cleanup resources
      */
     async cleanup() {
-        // PuppeteerCrawler handles browser cleanup automatically
-        console.log('Crawler cleanup completed automatically');
+        try {
+            console.log('Crawler cleanup completed automatically');
+        } catch (error) {
+            console.error('Cleanup error:', error.message);
+        }
     }
 }
-
-export default SkoolScraper;

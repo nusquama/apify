@@ -1,243 +1,167 @@
-// Apify SDK v3 import removed
-import { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } from '../config/selectors.js';
+/**
+ * Authentication utilities for Skool scraper using HTTP headers
+ * Refactored to work with CheerioCrawler instead of PuppeteerCrawler
+ */
+
+import { Actor } from 'apify';
+import { createAuthHeaders, verifyAuthFromHtml } from './api.js';
 import { ValidationError, AuthenticationError, normalizeCookies } from './validators.js';
 
 /**
- * Sets up authentication by setting cookies and verifying login status
- * @param {Object} page - Puppeteer page instance
+ * Sets up authentication headers for HTTP requests
  * @param {Array} cookies - Array of cookie objects from input
- * @returns {Promise<boolean>} True if authentication successful
+ * @returns {Object} HTTP headers with authentication
  */
-async function setupAuthentication(page, cookies) {
+export function setupAuthenticationHeaders(cookies) {
     try {
-        console.info('Setting up authentication with provided cookies...');
+        console.info('Setting up authentication headers with provided cookies...');
 
-        // Normalize cookies for Puppeteer
+        // Normalize cookies for HTTP headers
         const normalizedCookies = normalizeCookies(cookies);
         
-        // Set cookies before navigation
-        await setCookies(page, normalizedCookies);
+        // Create headers with cookies
+        const headers = createAuthHeaders(normalizedCookies);
         
-        // Verify authentication by checking login status
-        const isAuthenticated = await verifyAuthentication(page);
-        
-        if (!isAuthenticated) {
-            throw new AuthenticationError(ERROR_MESSAGES.AUTHENTICATION_FAILED);
-        }
-
-        console.info('Authentication successful');
-        return true;
+        console.info(`Successfully created auth headers with ${normalizedCookies.length} cookies`);
+        return headers;
 
     } catch (error) {
-        if (error instanceof AuthenticationError) {
-            throw error;
-        }
-        throw new AuthenticationError(`Authentication setup failed: ${error.message}`);
+        throw new AuthenticationError(`Authentication header setup failed: ${error.message}`);
     }
 }
 
 /**
- * Sets cookies in the browser page
- * @param {Object} page - Puppeteer page instance
- * @param {Array} cookies - Normalized cookie objects
+ * Verifies authentication by making a test request to Skool
+ * @param {Object} crawler - CheerioCrawler instance
+ * @param {Object} headers - HTTP headers with authentication
+ * @returns {Promise<Object>} Authentication verification result
  */
-async function setCookies(page, cookies) {
-    try {
-        // Clear any existing cookies first
-        await page.deleteCookie(...await page.cookies());
-        
-        // Set each cookie
-        for (const cookie of cookies) {
-            try {
-                await page.setCookie(cookie);
-                console.debug(`Set cookie: ${cookie.name} for domain: ${cookie.domain}`);
-            } catch (cookieError) {
-                console.warning(`Failed to set cookie ${cookie.name}: ${cookieError.message}`);
-                // Continue with other cookies even if one fails
-            }
-        }
-
-        console.info(`Successfully set ${cookies.length} cookies`);
-
-    } catch (error) {
-        throw new Error(`Failed to set cookies: ${error.message}`);
-    }
-}
-
-/**
- * Verifies authentication by navigating to Skool and checking for login indicators
- * @param {Object} page - Puppeteer page instance
- * @returns {Promise<boolean>} True if authenticated
- */
-async function verifyAuthentication(page) {
+export async function verifyAuthentication(crawler, headers) {
     try {
         console.info('Verifying authentication status...');
 
-        // Navigate to Skool discovery page to check login status
-        await page.goto('https://www.skool.com/discovery', {
-            waitUntil: WAIT_CONDITIONS.pageLoad,
-            timeout: WAIT_CONDITIONS.authTimeout
+        // Make a test request to Skool homepage
+        const response = await crawler.request({
+            url: 'https://www.skool.com/',
+            headers,
+            method: 'GET'
         });
 
-        // Wait a bit for the page to fully load
-        await page.waitForTimeout(3000);
-
-        // Check for authentication indicators
-        const authChecks = await Promise.all([
-            checkUserAvatar(page),
-            checkProfileMenu(page),
-            checkLoginButton(page)
-        ]);
-
-        const isAuthenticated = authChecks[0] || authChecks[1];
-        const hasLoginButton = authChecks[2];
-
-        if (hasLoginButton && !isAuthenticated) {
-            console.error('Login button found - user is not authenticated');
-            return false;
+        // Verify authentication from response
+        const authResult = verifyAuthFromHtml(response.body);
+        
+        if (authResult.isAuthenticated) {
+            console.info(authResult.message);
+            return {
+                success: true,
+                email: authResult.email,
+                message: authResult.message
+            };
+        } else {
+            console.error(authResult.message);
+            return {
+                success: false,
+                message: authResult.message
+            };
         }
-
-        if (isAuthenticated) {
-            console.info('User is authenticated - avatar or profile menu found');
-            return true;
-        }
-
-        // Additional check - try to access user profile
-        try {
-            await page.goto('https://www.skool.com/profile', { 
-                waitUntil: 'networkidle2',
-                timeout: 10000
-            });
-            
-            // If we can access profile without redirect, we're authenticated
-            const currentUrl = page.url();
-            if (!currentUrl.includes('/login') && !currentUrl.includes('/signin')) {
-                console.info('Authentication verified via profile access');
-                return true;
-            }
-        } catch (profileError) {
-            console.debug(`Profile check failed: ${profileError.message}`);
-        }
-
-        console.warning('Could not verify authentication status');
-        return false;
 
     } catch (error) {
         console.error(`Authentication verification failed: ${error.message}`);
-        return false;
+        return {
+            success: false,
+            message: `Verification failed: ${error.message}`
+        };
     }
 }
 
 /**
- * Checks for user avatar presence (indicates logged in)
- * @param {Object} page - Puppeteer page instance
- * @returns {Promise<boolean>} True if avatar found
+ * Creates a cookie string from cookie array for HTTP headers
+ * @param {Array} cookies - Array of cookie objects
+ * @returns {string} Cookie string for HTTP headers
  */
-async function checkUserAvatar(page) {
+export function createCookieString(cookies) {
     try {
-        const avatar = await page.$(SELECTORS.AUTH.userAvatar);
-        if (avatar) {
-            console.debug('User avatar found - user is authenticated');
-            return true;
-        }
-        return false;
+        const normalizedCookies = normalizeCookies(cookies);
+        return normalizedCookies
+            .map(cookie => `${cookie.name}=${cookie.value}`)
+            .join('; ');
     } catch (error) {
-        console.debug(`Avatar check failed: ${error.message}`);
-        return false;
+        throw new Error(`Failed to create cookie string: ${error.message}`);
     }
 }
 
 /**
- * Checks for profile menu presence (indicates logged in)
- * @param {Object} page - Puppeteer page instance
- * @returns {Promise<boolean>} True if profile menu found
+ * Validates cookie array and checks for required Skool cookies
+ * @param {Array} cookies - Array of cookie objects
+ * @returns {boolean} True if cookies are valid
  */
-async function checkProfileMenu(page) {
+export function validateSkoolCookies(cookies) {
     try {
-        const profileMenu = await page.$(SELECTORS.AUTH.profileMenu);
-        if (profileMenu) {
-            console.debug('Profile menu found - user is authenticated');
-            return true;
+        if (!Array.isArray(cookies) || cookies.length === 0) {
+            throw new ValidationError('Cookies array is empty or invalid');
         }
-        return false;
+
+        // Check for essential Skool cookies
+        const cookieNames = cookies.map(c => c.name);
+        const requiredCookies = ['auth_token']; // Main authentication cookie
+        
+        for (const required of requiredCookies) {
+            if (!cookieNames.includes(required)) {
+                console.warning(`Missing required cookie: ${required}`);
+                // Don't throw error, just warn - other cookies might work
+            }
+        }
+
+        // Validate cookie structure
+        for (const cookie of cookies) {
+            if (!cookie.name || typeof cookie.value === 'undefined') {
+                throw new ValidationError(`Invalid cookie structure: ${JSON.stringify(cookie)}`);
+            }
+        }
+
+        console.info(`Cookie validation passed for ${cookies.length} cookies`);
+        return true;
+
     } catch (error) {
-        console.debug(`Profile menu check failed: ${error.message}`);
-        return false;
+        throw new ValidationError(`Cookie validation failed: ${error.message}`);
     }
 }
 
 /**
- * Checks for login button presence (indicates not logged in)
- * @param {Object} page - Puppeteer page instance
- * @returns {Promise<boolean>} True if login button found
- */
-async function checkLoginButton(page) {
-    try {
-        const loginButton = await page.$(SELECTORS.AUTH.loginButton);
-        if (loginButton) {
-            console.debug('Login button found - user is not authenticated');
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.debug(`Login button check failed: ${error.message}`);
-        return false;
-    }
-}
-
-/**
- * Checks if user has access to a specific community
- * @param {Object} page - Puppeteer page instance
+ * Checks if community access is available with current authentication
  * @param {string} communityUrl - URL of the community to check
- * @returns {Promise<boolean>} True if user has access
+ * @param {Object} headers - HTTP headers with authentication
+ * @param {Object} gotScraping - got-scraping instance
+ * @returns {Promise<boolean>} True if access is available
  */
-async function checkCommunityAccess(page, communityUrl) {
+export async function checkCommunityAccess(communityUrl, headers, gotScraping) {
     try {
-        console.info(`Checking access to community: ${communityUrl}`);
+        console.info(`Checking community access: ${communityUrl}`);
 
-        await page.goto(communityUrl, {
-            waitUntil: WAIT_CONDITIONS.pageLoad,
-            timeout: 30000
+        const response = await gotScraping({
+            url: communityUrl,
+            headers,
+            method: 'GET',
+            timeout: { request: 30000 }
         });
 
-        // Wait for page to load completely
-        await page.waitForTimeout(3000);
-
-        // Check for access denied indicators
-        const accessDenied = await page.$(SELECTORS.ERROR.accessDenied);
-        const privateContent = await page.$(SELECTORS.ERROR.privateContent);
-        const loginRequired = await page.$(SELECTORS.ERROR.loginRequired);
-        const notFound = await page.$(SELECTORS.ERROR.notFound);
-
-        if (accessDenied || privateContent || loginRequired) {
-            console.error('Access denied to community - user is not a member');
+        // Check if redirected to login
+        if (response.url.includes('/login') || response.url.includes('/signin')) {
+            console.error('Redirected to login - no access to community');
             return false;
         }
 
-        if (notFound) {
-            console.error('Community not found - check URL');
+        // Check for access denied indicators in content
+        const content = response.body;
+        if (content.includes('access denied') || 
+            content.includes('private community') ||
+            content.includes('join this community')) {
+            console.error('Community access denied');
             return false;
         }
 
-        // Check for community content indicators
-        const communityTab = await page.$(SELECTORS.NAVIGATION.communityTab);
-        const postsContainer = await page.$(SELECTORS.NAVIGATION.postsContainer);
-
-        if (communityTab || postsContainer) {
-            console.info('Community access verified - user is a member');
-            return true;
-        }
-
-        // Additional check - look for any post items
-        try {
-            await page.waitForSelector(SELECTORS.POSTS.postItem, { timeout: 5000 });
-            console.info('Community access verified - posts found');
-            return true;
-        } catch (waitError) {
-            console.warning('No posts found - community might be empty or access restricted');
-        }
-
-        return true; // Assume access if no clear denial indicators
+        console.info('Community access verified');
+        return true;
 
     } catch (error) {
         console.error(`Community access check failed: ${error.message}`);
@@ -246,53 +170,56 @@ async function checkCommunityAccess(page, communityUrl) {
 }
 
 /**
- * Handles authentication errors with helpful user guidance
- * @param {Error} error - Authentication error
- * @returns {string} User-friendly error message
+ * Extracts user information from authenticated response
+ * @param {string} html - HTML content from authenticated request
+ * @returns {Object} User information
  */
-function getAuthErrorMessage(error) {
-    if (error.message.includes('Authentication failed')) {
-        return `${ERROR_MESSAGES.AUTHENTICATION_FAILED}\n\nTroubleshooting steps:\n1. Ensure you are logged into Skool.com in your browser\n2. Export fresh cookies using Cookie-Editor or EditThisCookie extension\n3. Verify the cookies include session tokens and are not expired\n4. Make sure cookies are from the correct Skool.com domain`;
-    }
+export function extractUserInfo(html) {
+    try {
+        const userInfo = {
+            email: null,
+            name: null,
+            id: null,
+            avatar: null
+        };
 
-    if (error.message.includes('Access denied')) {
-        return `${ERROR_MESSAGES.ACCESS_DENIED}\n\nTo fix this:\n1. Join the community you want to scrape\n2. Verify you can access the community content in your browser\n3. Export fresh cookies after confirming access`;
-    }
+        // Extract email
+        const emailMatch = html.match(/email['"]\s*:\s*['"]([^'"]+)['"]/i);
+        if (emailMatch) {
+            userInfo.email = emailMatch[1];
+        }
 
-    return `Authentication error: ${error.message}\n\nPlease check your cookies and try again.`;
+        // Extract user name
+        const nameMatch = html.match(/name['"]\s*:\s*['"]([^'"]+)['"]/i) ||
+                         html.match(/displayName['"]\s*:\s*['"]([^'"]+)['"]/i);
+        if (nameMatch) {
+            userInfo.name = nameMatch[1];
+        }
+
+        // Extract user ID
+        const idMatch = html.match(/user_id['"]\s*:\s*['"]([^'"]+)['"]/i) ||
+                       html.match(/userId['"]\s*:\s*['"]([^'"]+)['"]/i);
+        if (idMatch) {
+            userInfo.id = idMatch[1];
+        }
+
+        return userInfo;
+
+    } catch (error) {
+        console.error('Error extracting user info:', error.message);
+        return {
+            email: null,
+            name: null,
+            id: null,
+            avatar: null
+        };
+    }
 }
 
 /**
- * Refreshes authentication if needed
- * @param {Object} page - Puppeteer page instance
- * @param {Array} cookies - Cookie array
- * @returns {Promise<boolean>} True if refresh successful
+ * Legacy function - kept for compatibility but not used in new approach
+ * @deprecated Use setupAuthenticationHeaders instead
  */
-async function refreshAuthentication(page, cookies) {
-    try {
-        console.info('Refreshing authentication...');
-        
-        // Clear existing cookies and set fresh ones
-        await page.deleteCookie(...await page.cookies());
-        await setCookies(page, normalizeCookies(cookies));
-        
-        // Verify authentication again
-        return await verifyAuthentication(page);
-        
-    } catch (error) {
-        console.error(`Authentication refresh failed: ${error.message}`);
-        return false;
-    }
+export async function setupAuthentication() {
+    throw new Error('setupAuthentication is deprecated. Use setupAuthenticationHeaders instead.');
 }
-
-export {
-    setupAuthentication,
-    setCookies,
-    verifyAuthentication,
-    checkCommunityAccess,
-    getAuthErrorMessage,
-    refreshAuthentication,
-    checkUserAvatar,
-    checkProfileMenu,
-    checkLoginButton
-};

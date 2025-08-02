@@ -1,7 +1,6 @@
 import { Actor } from 'apify';
-import SkoolScraper from './scraper.js';
+import { SkoolScraper } from './scraper.js';
 import { validateInput, ValidationError, AuthenticationError } from './utils/validators.js';
-import { getAuthErrorMessage } from './utils/auth.js';
 
 // Initialize Actor
 await Actor.init();
