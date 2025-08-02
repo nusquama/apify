@@ -1,10 +1,11 @@
-const { Actor } = require('apify');
-const { PuppeteerCrawler, launchPuppeteer } = require('crawlee');
-const { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } = require('./config/selectors');
-const { setupAuthentication, checkCommunityAccess } = require('./utils/auth');
-const { parsePostData, extractCommentsForPost } = require('./utils/parsers');
-const { handleInfiniteScroll, smartScroll } = require('./utils/pagination');
-const { validatePostData } = require('./utils/validators');
+import { Actor } from 'apify';
+import { PuppeteerCrawler } from 'crawlee';
+import puppeteer from 'puppeteer';
+import { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } from './config/selectors.js';
+import { setupAuthentication, checkCommunityAccess } from './utils/auth.js';
+import { parsePostData, extractCommentsForPost } from './utils/parsers.js';
+import { handleInfiniteScroll, smartScroll } from './utils/pagination.js';
+import { validatePostData } from './utils/validators.js';
 
 /**
  * Main scraper class for Skool.com communities
@@ -30,22 +31,17 @@ class SkoolScraper {
             console.log('Initializing Skool scraper...');
 
             // Launch browser with appropriate configuration
-            this.browser = await launchPuppeteer({
-                launchOptions: {
-                    headless: true,
-                    args: [
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage',
-                        '--disable-accelerated-2d-canvas',
-                        '--no-first-run',
-                        '--no-zygote',
-                        '--disable-gpu'
-                    ]
-                },
-                proxyUrl: this.input.proxyConfig?.useApifyProxy ? undefined : this.input.proxyConfig?.proxyUrl,
-                useApifyProxy: this.input.proxyConfig?.useApifyProxy,
-                apifyProxyGroups: this.input.proxyConfig?.apifyProxyGroups
+            this.browser = await puppeteer.launch({
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu'
+                ]
             });
 
             // Create new page
@@ -106,7 +102,7 @@ class SkoolScraper {
      */
     async scrapeCommunity(communityUrl) {
         try {
-            console.log.info(`Starting to scrape community: ${communityUrl}`);
+            console.log(`Starting to scrape community: ${communityUrl}`);
 
             // Check community access
             const hasAccess = await checkCommunityAccess(this.page, communityUrl);
@@ -128,7 +124,7 @@ class SkoolScraper {
 
             // Handle pagination to load all posts
             const itemCount = await this.handlePagination();
-            console.log.info(`Loaded ${itemCount} posts for pagination`);
+            console.log(`Loaded ${itemCount} posts for pagination`);
 
             // Extract all posts
             const posts = await this.extractPosts();
@@ -137,12 +133,12 @@ class SkoolScraper {
             this.stats.totalPosts += posts.length;
             this.stats.communitiesProcessed++;
 
-            console.log.info(`Successfully scraped ${posts.length} posts from ${communityUrl}`);
+            console.log(`Successfully scraped ${posts.length} posts from ${communityUrl}`);
             return posts;
 
         } catch (error) {
             this.stats.errors.push(`Community ${communityUrl}: ${error.message}`);
-            console.log.error(`Failed to scrape community ${communityUrl}: ${error.message}`);
+            console.error(`Failed to scrape community ${communityUrl}: ${error.message}`);
             throw error;
         }
     }
@@ -163,7 +159,7 @@ class SkoolScraper {
             await this.page.waitForTimeout(3000);
 
         } catch (error) {
-            console.log.warning(`Content loading timeout - proceeding anyway: ${error.message}`);
+            console.warn(`Content loading timeout - proceeding anyway: ${error.message}`);
         }
     }
 
@@ -190,7 +186,7 @@ class SkoolScraper {
                 );
             }
         } catch (error) {
-            console.log.error(`Pagination failed: ${error.message}`);
+            console.error(`Pagination failed: ${error.message}`);
             throw error;
         }
     }
@@ -205,7 +201,7 @@ class SkoolScraper {
             const posts = [];
             const batchSize = 10; // Process posts in batches to manage memory
 
-            console.log.info(`Found ${postElements.length} posts to extract`);
+            console.log(`Found ${postElements.length} posts to extract`);
 
             for (let i = 0; i < postElements.length; i += batchSize) {
                 const batch = postElements.slice(i, i + batchSize);
@@ -226,7 +222,7 @@ class SkoolScraper {
             return posts;
 
         } catch (error) {
-            console.log.error(`Post extraction failed: ${error.message}`);
+            console.error(`Post extraction failed: ${error.message}`);
             throw error;
         }
     }
@@ -246,7 +242,7 @@ class SkoolScraper {
                 const postIndex = startIndex + j + 1;
 
                 if (this.input.debug) {
-                    console.log.debug(`Processing post ${postIndex}/${postElements.length}`);
+                    console.debug(`Processing post ${postIndex}/${postElements.length}`);
                 }
 
                 // Extract basic post data
@@ -259,7 +255,7 @@ class SkoolScraper {
                         postData.comments = comments;
                         this.stats.totalComments += comments.length;
                     } catch (commentError) {
-                        console.log.warning(`Failed to extract comments for post ${postData.id}: ${commentError.message}`);
+                        console.warn(`Failed to extract comments for post ${postData.id}: ${commentError.message}`);
                         postData.comments = [];
                     }
                 }
@@ -268,17 +264,17 @@ class SkoolScraper {
                 if (validatePostData(postData)) {
                     batchPosts.push(postData);
                 } else {
-                    console.log.warning(`Invalid post data structure for post ${postIndex}, skipping`);
+                    console.warn(`Invalid post data structure for post ${postIndex}, skipping`);
                 }
 
             } catch (postError) {
-                console.log.warning(`Failed to process post ${startIndex + j + 1}: ${postError.message}`);
+                console.warn(`Failed to process post ${startIndex + j + 1}: ${postError.message}`);
                 continue;
             }
         }
 
         if (this.input.debug) {
-            console.log.debug(`Batch processed: ${batchPosts.length}/${postElements.length} posts successful`);
+            console.debug(`Batch processed: ${batchPosts.length}/${postElements.length} posts successful`);
         }
 
         return batchPosts;
@@ -299,7 +295,7 @@ class SkoolScraper {
             await this.page.waitForTimeout(1000);
             
         } catch (error) {
-            console.log.debug(`Memory cleanup failed: ${error.message}`);
+            console.debug(`Memory cleanup failed: ${error.message}`);
         }
     }
 
@@ -312,7 +308,7 @@ class SkoolScraper {
             const allPosts = [];
             const { startUrls } = this.input;
 
-            console.log.info(`Starting to scrape ${startUrls.length} communities`);
+            console.log(`Starting to scrape ${startUrls.length} communities`);
 
             for (let i = 0; i < startUrls.length; i++) {
                 const urlObj = startUrls[i];
@@ -326,7 +322,7 @@ class SkoolScraper {
                     }
 
                 } catch (communityError) {
-                    console.log.error(`Failed to scrape community ${urlObj.url}: ${communityError.message}`);
+                    console.error(`Failed to scrape community ${urlObj.url}: ${communityError.message}`);
                     // Continue with other communities
                     continue;
                 }
@@ -338,7 +334,7 @@ class SkoolScraper {
             return allPosts;
 
         } catch (error) {
-            console.log.error(`Multi-community scraping failed: ${error.message}`);
+            console.error(`Multi-community scraping failed: ${error.message}`);
             throw error;
         }
     }
@@ -347,15 +343,15 @@ class SkoolScraper {
      * Logs final scraping statistics
      */
     logFinalStats() {
-        console.log.info('=== SCRAPING COMPLETED ===');
-        console.log.info(`Communities processed: ${this.stats.communitiesProcessed}`);
-        console.log.info(`Total posts scraped: ${this.stats.totalPosts}`);
-        console.log.info(`Total comments scraped: ${this.stats.totalComments}`);
+        console.log('=== SCRAPING COMPLETED ===');
+        console.log(`Communities processed: ${this.stats.communitiesProcessed}`);
+        console.log(`Total posts scraped: ${this.stats.totalPosts}`);
+        console.log(`Total comments scraped: ${this.stats.totalComments}`);
         
         if (this.stats.errors.length > 0) {
-            console.log.warning(`Errors encountered: ${this.stats.errors.length}`);
+            console.warn(`Errors encountered: ${this.stats.errors.length}`);
             this.stats.errors.forEach(error => {
-                console.log.error(`- ${error}`);
+                console.error(`- ${error}`);
             });
         }
     }
@@ -374,7 +370,7 @@ class SkoolScraper {
                 return await operation();
             } catch (error) {
                 lastError = error;
-                console.log.warning(`Attempt ${attempt}/${maxRetries} failed: ${error.message}`);
+                console.warn(`Attempt ${attempt}/${maxRetries} failed: ${error.message}`);
                 
                 if (attempt < maxRetries) {
                     const delayMs = Math.pow(2, attempt) * 1000; // Exponential backoff
@@ -397,11 +393,11 @@ class SkoolScraper {
             if (this.browser) {
                 await this.browser.close();
             }
-            console.log.info('Browser cleanup completed');
+            console.log('Browser cleanup completed');
         } catch (error) {
-            console.log.error(`Cleanup failed: ${error.message}`);
+            console.error(`Cleanup failed: ${error.message}`);
         }
     }
 }
 
-module.exports = SkoolScraper;
+export default SkoolScraper;

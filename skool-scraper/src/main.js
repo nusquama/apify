@@ -1,71 +1,78 @@
-const { Actor } = require('apify');
-const SkoolScraper = require('./scraper');
-const { validateInput, ValidationError, AuthenticationError } = require('./utils/validators');
-const { getAuthErrorMessage } = require('./utils/auth');
+import { Actor } from 'apify';
+import SkoolScraper from './scraper.js';
+import { validateInput, ValidationError, AuthenticationError } from './utils/validators.js';
+import { getAuthErrorMessage } from './utils/auth.js';
 
-/**
- * Main Actor entry point
- */
-await Actor.main(async () => {
-    try {
-        console.log('=== SKOOL SCRAPER ACTOR STARTING ===');
+// Initialize Actor
+await Actor.init();
 
-        // Get and validate input
-        const input = await Actor.getInput();
-        console.log('Input received, validating...');
-
-        let validatedInput;
+try {
+    await Actor.main(async () => {
         try {
-            validatedInput = validateInput(input);
-            console.log('Input validation successful');
-        } catch (validationError) {
-            console.error(`Input validation failed: ${validationError.message}`);
-            throw validationError;
-        }
+            console.log('=== SKOOL SCRAPER ACTOR STARTING ===');
 
-        // Log configuration (without sensitive data)
-        logConfiguration(validatedInput);
+            // Get and validate input
+            const input = await Actor.getInput();
+            console.log('Input received, validating...');
 
-        // Initialize dataset for storing results
-        const dataset = await Actor.openDataset();
-        
-        // Initialize scraper
-        const scraper = new SkoolScraper(validatedInput);
-        
-        try {
-            // Initialize browser and authentication
-            await scraper.initialize();
-
-            // Start scraping all communities
-            console.log('Starting scraping process...');
-            const allPosts = await scraper.scrapeAllCommunities();
-
-            // Store results in dataset
-            if (allPosts.length > 0) {
-                await storeResults(dataset, allPosts, validatedInput);
-                console.log(`Successfully stored ${allPosts.length} posts in dataset`);
-            } else {
-                console.warn('No posts were scraped - check community access and URLs');
+            let validatedInput;
+            try {
+                validatedInput = validateInput(input);
+                console.log('Input validation successful');
+            } catch (validationError) {
+                console.error(`Input validation failed: ${validationError.message}`);
+                throw validationError;
             }
 
-            // Log completion summary
-            logCompletionSummary(allPosts, scraper.stats);
+            // Log configuration (without sensitive data)
+            logConfiguration(validatedInput);
 
-        } catch (scrapingError) {
-            await handleScrapingError(scrapingError);
-            throw scrapingError;
-        } finally {
-            // Always cleanup browser resources
-            await scraper.cleanup();
+            // Initialize dataset for storing results
+            const dataset = await Actor.openDataset();
+            
+            // Initialize scraper
+            const scraper = new SkoolScraper(validatedInput);
+            
+            try {
+                // Initialize browser and authentication
+                await scraper.initialize();
+
+                // Start scraping all communities
+                console.log('Starting scraping process...');
+                const allPosts = await scraper.scrapeAllCommunities();
+
+                // Store results in dataset
+                if (allPosts.length > 0) {
+                    await storeResults(dataset, allPosts, validatedInput);
+                    console.log(`Successfully stored ${allPosts.length} posts in dataset`);
+                } else {
+                    console.warn('No posts were scraped - check community access and URLs');
+                }
+
+                // Log completion summary
+                logCompletionSummary(allPosts, scraper.stats);
+
+            } catch (scrapingError) {
+                await handleScrapingError(scrapingError);
+                throw scrapingError;
+            } finally {
+                // Always cleanup browser resources
+                await scraper.cleanup();
+            }
+
+            console.log('=== SKOOL SCRAPER ACTOR COMPLETED SUCCESSFULLY ===');
+
+        } catch (error) {
+            await handleFatalError(error);
+            await Actor.fail('Actor execution failed');
         }
-
-        console.log('=== SKOOL SCRAPER ACTOR COMPLETED SUCCESSFULLY ===');
-
-    } catch (error) {
-        await handleFatalError(error);
-        process.exit(1);
-    }
-});
+    });
+} catch (error) {
+    console.error('Fatal error in Actor execution:', error);
+    await Actor.fail('Critical Actor failure');
+} finally {
+    await Actor.exit();
+}
 
 /**
  * Logs the configuration (without sensitive information)
@@ -237,28 +244,3 @@ async function handleFatalError(error) {
 
     console.error('==================');
 }
-
-/**
- * Handles graceful shutdown
- */
-process.on('SIGTERM', async () => {
-    console.log('Received SIGTERM, performing graceful shutdown...');
-    // Cleanup will be handled in the finally block of main()
-});
-
-process.on('SIGINT', async () => {
-    console.log('Received SIGINT, performing graceful shutdown...');
-    // Cleanup will be handled in the finally block of main()
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Promise Rejection:', reason);
-    // Don't exit process, let main error handler deal with it
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-    process.exit(1);
-});

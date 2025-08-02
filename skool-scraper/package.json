@@ -2,6 +2,7 @@
   "name": "skool-scraper",
   "version": "1.0.0",
   "description": "Comprehensive Apify Actor for scraping posts, comments, and user data from Skool.com communities",
+  "type": "module",
   "main": "src/main.js",
   "scripts": {
     "start": "node src/main.js",

@@ -1,5 +1,5 @@
 // Apify SDK v3 import removed
-const { SELECTORS, WAIT_CONDITIONS } = require('../config/selectors');
+import { SELECTORS, WAIT_CONDITIONS } from '../config/selectors.js';
 
 /**
  * Handles infinite scroll pagination to load all available content
@@ -402,7 +402,7 @@ async function isAtEndOfContent(page) {
     }
 }
 
-module.exports = {
+export {
     handleInfiniteScroll,
     performScrollAction,
     clickLoadMoreButton,

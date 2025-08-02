@@ -1,6 +1,6 @@
 // Apify SDK v3 import removed
-const { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } = require('../config/selectors');
-const { ValidationError, AuthenticationError, normalizeCookies } = require('./validators');
+import { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } from '../config/selectors.js';
+import { ValidationError, AuthenticationError, normalizeCookies } from './validators.js';
 
 /**
  * Sets up authentication by setting cookies and verifying login status
@@ -285,7 +285,7 @@ async function refreshAuthentication(page, cookies) {
     }
 }
 
-module.exports = {
+export {
     setupAuthentication,
     setCookies,
     verifyAuthentication,

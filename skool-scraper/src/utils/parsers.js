@@ -1,6 +1,6 @@
 // Apify SDK v3 import removed
-const { SELECTORS, EXTRACTION_PATTERNS } = require('../config/selectors');
-const { validatePostData, validateCommentData } = require('./validators');
+import { SELECTORS, EXTRACTION_PATTERNS } from '../config/selectors.js';
+import { validatePostData, validateCommentData } from './validators.js';
 
 /**
  * Extracts post data from a post element
@@ -425,7 +425,7 @@ function extractContentMetadata(content) {
     }
 }
 
-module.exports = {
+export {
     parsePostData,
     parseCommentData,
     extractUserData,

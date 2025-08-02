@@ -114,7 +114,7 @@ const ERROR_MESSAGES = {
     NETWORK_ERROR: 'Network error occurred. Please check your internet connection and try again.'
 };
 
-module.exports = {
+export {
     SELECTORS,
     WAIT_CONDITIONS,
     URL_PATTERNS,

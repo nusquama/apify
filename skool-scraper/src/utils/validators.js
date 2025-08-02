@@ -1,4 +1,4 @@
-const { URL_PATTERNS, ERROR_MESSAGES } = require('../config/selectors');
+import { URL_PATTERNS, ERROR_MESSAGES } from '../config/selectors.js';
 
 /**
  * Custom error classes for better error handling
@@ -286,7 +286,7 @@ function validateProxyConfig(proxyConfig) {
     }
 }
 
-module.exports = {
+export {
     ValidationError,
     AuthenticationError,
     validateInput,
