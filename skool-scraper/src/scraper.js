@@ -1,4 +1,5 @@
-const Apify = require('apify');
+const { Actor } = require('apify');
+const { PuppeteerCrawler, launchPuppeteer } = require('crawlee');
 const { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } = require('./config/selectors');
 const { setupAuthentication, checkCommunityAccess } = require('./utils/auth');
 const { parsePostData, extractCommentsForPost } = require('./utils/parsers');
@@ -26,10 +27,10 @@ class SkoolScraper {
      */
     async initialize() {
         try {
-            Apify.utils.log.info('Initializing Skool scraper...');
+            console.log('Initializing Skool scraper...');
 
             // Launch browser with appropriate configuration
-            this.browser = await Apify.launchPuppeteer({
+            this.browser = await launchPuppeteer({
                 launchOptions: {
                     headless: true,
                     args: [
@@ -64,7 +65,7 @@ class SkoolScraper {
             // Setup authentication
             await setupAuthentication(this.page, this.input.cookies);
 
-            Apify.utils.log.info('Scraper initialization completed');
+            console.log('Scraper initialization completed');
 
         } catch (error) {
             await this.cleanup();
@@ -94,7 +95,7 @@ class SkoolScraper {
             });
 
         } catch (error) {
-            Apify.utils.log.warning(`Request interception setup failed: ${error.message}`);
+            console.warn(`Request interception setup failed: ${error.message}`);
         }
     }
 
@@ -105,7 +106,7 @@ class SkoolScraper {
      */
     async scrapeCommunity(communityUrl) {
         try {
-            Apify.utils.log.info(`Starting to scrape community: ${communityUrl}`);
+            console.log.info(`Starting to scrape community: ${communityUrl}`);
 
             // Check community access
             const hasAccess = await checkCommunityAccess(this.page, communityUrl);
@@ -127,7 +128,7 @@ class SkoolScraper {
 
             // Handle pagination to load all posts
             const itemCount = await this.handlePagination();
-            Apify.utils.log.info(`Loaded ${itemCount} posts for pagination`);
+            console.log.info(`Loaded ${itemCount} posts for pagination`);
 
             // Extract all posts
             const posts = await this.extractPosts();
@@ -136,12 +137,12 @@ class SkoolScraper {
             this.stats.totalPosts += posts.length;
             this.stats.communitiesProcessed++;
 
-            Apify.utils.log.info(`Successfully scraped ${posts.length} posts from ${communityUrl}`);
+            console.log.info(`Successfully scraped ${posts.length} posts from ${communityUrl}`);
             return posts;
 
         } catch (error) {
             this.stats.errors.push(`Community ${communityUrl}: ${error.message}`);
-            Apify.utils.log.error(`Failed to scrape community ${communityUrl}: ${error.message}`);
+            console.log.error(`Failed to scrape community ${communityUrl}: ${error.message}`);
             throw error;
         }
     }
@@ -162,7 +163,7 @@ class SkoolScraper {
             await this.page.waitForTimeout(3000);
 
         } catch (error) {
-            Apify.utils.log.warning(`Content loading timeout - proceeding anyway: ${error.message}`);
+            console.log.warning(`Content loading timeout - proceeding anyway: ${error.message}`);
         }
     }
 
@@ -189,7 +190,7 @@ class SkoolScraper {
                 );
             }
         } catch (error) {
-            Apify.utils.log.error(`Pagination failed: ${error.message}`);
+            console.log.error(`Pagination failed: ${error.message}`);
             throw error;
         }
     }
@@ -204,7 +205,7 @@ class SkoolScraper {
             const posts = [];
             const batchSize = 10; // Process posts in batches to manage memory
 
-            Apify.utils.log.info(`Found ${postElements.length} posts to extract`);
+            console.log.info(`Found ${postElements.length} posts to extract`);
 
             for (let i = 0; i < postElements.length; i += batchSize) {
                 const batch = postElements.slice(i, i + batchSize);
@@ -225,7 +226,7 @@ class SkoolScraper {
             return posts;
 
         } catch (error) {
-            Apify.utils.log.error(`Post extraction failed: ${error.message}`);
+            console.log.error(`Post extraction failed: ${error.message}`);
             throw error;
         }
     }
@@ -245,7 +246,7 @@ class SkoolScraper {
                 const postIndex = startIndex + j + 1;
 
                 if (this.input.debug) {
-                    Apify.utils.log.debug(`Processing post ${postIndex}/${postElements.length}`);
+                    console.log.debug(`Processing post ${postIndex}/${postElements.length}`);
                 }
 
                 // Extract basic post data
@@ -258,7 +259,7 @@ class SkoolScraper {
                         postData.comments = comments;
                         this.stats.totalComments += comments.length;
                     } catch (commentError) {
-                        Apify.utils.log.warning(`Failed to extract comments for post ${postData.id}: ${commentError.message}`);
+                        console.log.warning(`Failed to extract comments for post ${postData.id}: ${commentError.message}`);
                         postData.comments = [];
                     }
                 }
@@ -267,17 +268,17 @@ class SkoolScraper {
                 if (validatePostData(postData)) {
                     batchPosts.push(postData);
                 } else {
-                    Apify.utils.log.warning(`Invalid post data structure for post ${postIndex}, skipping`);
+                    console.log.warning(`Invalid post data structure for post ${postIndex}, skipping`);
                 }
 
             } catch (postError) {
-                Apify.utils.log.warning(`Failed to process post ${startIndex + j + 1}: ${postError.message}`);
+                console.log.warning(`Failed to process post ${startIndex + j + 1}: ${postError.message}`);
                 continue;
             }
         }
 
         if (this.input.debug) {
-            Apify.utils.log.debug(`Batch processed: ${batchPosts.length}/${postElements.length} posts successful`);
+            console.log.debug(`Batch processed: ${batchPosts.length}/${postElements.length} posts successful`);
         }
 
         return batchPosts;
@@ -298,7 +299,7 @@ class SkoolScraper {
             await this.page.waitForTimeout(1000);
             
         } catch (error) {
-            Apify.utils.log.debug(`Memory cleanup failed: ${error.message}`);
+            console.log.debug(`Memory cleanup failed: ${error.message}`);
         }
     }
 
@@ -311,7 +312,7 @@ class SkoolScraper {
             const allPosts = [];
             const { startUrls } = this.input;
 
-            Apify.utils.log.info(`Starting to scrape ${startUrls.length} communities`);
+            console.log.info(`Starting to scrape ${startUrls.length} communities`);
 
             for (let i = 0; i < startUrls.length; i++) {
                 const urlObj = startUrls[i];
@@ -325,7 +326,7 @@ class SkoolScraper {
                     }
 
                 } catch (communityError) {
-                    Apify.utils.log.error(`Failed to scrape community ${urlObj.url}: ${communityError.message}`);
+                    console.log.error(`Failed to scrape community ${urlObj.url}: ${communityError.message}`);
                     // Continue with other communities
                     continue;
                 }
@@ -337,7 +338,7 @@ class SkoolScraper {
             return allPosts;
 
         } catch (error) {
-            Apify.utils.log.error(`Multi-community scraping failed: ${error.message}`);
+            console.log.error(`Multi-community scraping failed: ${error.message}`);
             throw error;
         }
     }
@@ -346,15 +347,15 @@ class SkoolScraper {
      * Logs final scraping statistics
      */
     logFinalStats() {
-        Apify.utils.log.info('=== SCRAPING COMPLETED ===');
-        Apify.utils.log.info(`Communities processed: ${this.stats.communitiesProcessed}`);
-        Apify.utils.log.info(`Total posts scraped: ${this.stats.totalPosts}`);
-        Apify.utils.log.info(`Total comments scraped: ${this.stats.totalComments}`);
+        console.log.info('=== SCRAPING COMPLETED ===');
+        console.log.info(`Communities processed: ${this.stats.communitiesProcessed}`);
+        console.log.info(`Total posts scraped: ${this.stats.totalPosts}`);
+        console.log.info(`Total comments scraped: ${this.stats.totalComments}`);
         
         if (this.stats.errors.length > 0) {
-            Apify.utils.log.warning(`Errors encountered: ${this.stats.errors.length}`);
+            console.log.warning(`Errors encountered: ${this.stats.errors.length}`);
             this.stats.errors.forEach(error => {
-                Apify.utils.log.error(`- ${error}`);
+                console.log.error(`- ${error}`);
             });
         }
     }
@@ -373,7 +374,7 @@ class SkoolScraper {
                 return await operation();
             } catch (error) {
                 lastError = error;
-                Apify.utils.log.warning(`Attempt ${attempt}/${maxRetries} failed: ${error.message}`);
+                console.log.warning(`Attempt ${attempt}/${maxRetries} failed: ${error.message}`);
                 
                 if (attempt < maxRetries) {
                     const delayMs = Math.pow(2, attempt) * 1000; // Exponential backoff
@@ -396,9 +397,9 @@ class SkoolScraper {
             if (this.browser) {
                 await this.browser.close();
             }
-            Apify.utils.log.info('Browser cleanup completed');
+            console.log.info('Browser cleanup completed');
         } catch (error) {
-            Apify.utils.log.error(`Cleanup failed: ${error.message}`);
+            console.log.error(`Cleanup failed: ${error.message}`);
         }
     }
 }

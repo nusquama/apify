@@ -1,4 +1,4 @@
-const Apify = require('apify');
+// Apify SDK v3 import removed
 const { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } = require('../config/selectors');
 const { ValidationError, AuthenticationError, normalizeCookies } = require('./validators');
 
@@ -10,7 +10,7 @@ const { ValidationError, AuthenticationError, normalizeCookies } = require('./va
  */
 async function setupAuthentication(page, cookies) {
     try {
-        Apify.utils.log.info('Setting up authentication with provided cookies...');
+        console.info('Setting up authentication with provided cookies...');
 
         // Normalize cookies for Puppeteer
         const normalizedCookies = normalizeCookies(cookies);
@@ -25,7 +25,7 @@ async function setupAuthentication(page, cookies) {
             throw new AuthenticationError(ERROR_MESSAGES.AUTHENTICATION_FAILED);
         }
 
-        Apify.utils.log.info('Authentication successful');
+        console.info('Authentication successful');
         return true;
 
     } catch (error) {
@@ -50,14 +50,14 @@ async function setCookies(page, cookies) {
         for (const cookie of cookies) {
             try {
                 await page.setCookie(cookie);
-                Apify.utils.log.debug(`Set cookie: ${cookie.name} for domain: ${cookie.domain}`);
+                console.debug(`Set cookie: ${cookie.name} for domain: ${cookie.domain}`);
             } catch (cookieError) {
-                Apify.utils.log.warning(`Failed to set cookie ${cookie.name}: ${cookieError.message}`);
+                console.warning(`Failed to set cookie ${cookie.name}: ${cookieError.message}`);
                 // Continue with other cookies even if one fails
             }
         }
 
-        Apify.utils.log.info(`Successfully set ${cookies.length} cookies`);
+        console.info(`Successfully set ${cookies.length} cookies`);
 
     } catch (error) {
         throw new Error(`Failed to set cookies: ${error.message}`);
@@ -71,7 +71,7 @@ async function setCookies(page, cookies) {
  */
 async function verifyAuthentication(page) {
     try {
-        Apify.utils.log.info('Verifying authentication status...');
+        console.info('Verifying authentication status...');
 
         // Navigate to Skool discovery page to check login status
         await page.goto('https://www.skool.com/discovery', {
@@ -93,12 +93,12 @@ async function verifyAuthentication(page) {
         const hasLoginButton = authChecks[2];
 
         if (hasLoginButton && !isAuthenticated) {
-            Apify.utils.log.error('Login button found - user is not authenticated');
+            console.error('Login button found - user is not authenticated');
             return false;
         }
 
         if (isAuthenticated) {
-            Apify.utils.log.info('User is authenticated - avatar or profile menu found');
+            console.info('User is authenticated - avatar or profile menu found');
             return true;
         }
 
@@ -112,18 +112,18 @@ async function verifyAuthentication(page) {
             // If we can access profile without redirect, we're authenticated
             const currentUrl = page.url();
             if (!currentUrl.includes('/login') && !currentUrl.includes('/signin')) {
-                Apify.utils.log.info('Authentication verified via profile access');
+                console.info('Authentication verified via profile access');
                 return true;
             }
         } catch (profileError) {
-            Apify.utils.log.debug(`Profile check failed: ${profileError.message}`);
+            console.debug(`Profile check failed: ${profileError.message}`);
         }
 
-        Apify.utils.log.warning('Could not verify authentication status');
+        console.warning('Could not verify authentication status');
         return false;
 
     } catch (error) {
-        Apify.utils.log.error(`Authentication verification failed: ${error.message}`);
+        console.error(`Authentication verification failed: ${error.message}`);
         return false;
     }
 }
@@ -137,12 +137,12 @@ async function checkUserAvatar(page) {
     try {
         const avatar = await page.$(SELECTORS.AUTH.userAvatar);
         if (avatar) {
-            Apify.utils.log.debug('User avatar found - user is authenticated');
+            console.debug('User avatar found - user is authenticated');
             return true;
         }
         return false;
     } catch (error) {
-        Apify.utils.log.debug(`Avatar check failed: ${error.message}`);
+        console.debug(`Avatar check failed: ${error.message}`);
         return false;
     }
 }
@@ -156,12 +156,12 @@ async function checkProfileMenu(page) {
     try {
         const profileMenu = await page.$(SELECTORS.AUTH.profileMenu);
         if (profileMenu) {
-            Apify.utils.log.debug('Profile menu found - user is authenticated');
+            console.debug('Profile menu found - user is authenticated');
             return true;
         }
         return false;
     } catch (error) {
-        Apify.utils.log.debug(`Profile menu check failed: ${error.message}`);
+        console.debug(`Profile menu check failed: ${error.message}`);
         return false;
     }
 }
@@ -175,12 +175,12 @@ async function checkLoginButton(page) {
     try {
         const loginButton = await page.$(SELECTORS.AUTH.loginButton);
         if (loginButton) {
-            Apify.utils.log.debug('Login button found - user is not authenticated');
+            console.debug('Login button found - user is not authenticated');
             return true;
         }
         return false;
     } catch (error) {
-        Apify.utils.log.debug(`Login button check failed: ${error.message}`);
+        console.debug(`Login button check failed: ${error.message}`);
         return false;
     }
 }
@@ -193,7 +193,7 @@ async function checkLoginButton(page) {
  */
 async function checkCommunityAccess(page, communityUrl) {
     try {
-        Apify.utils.log.info(`Checking access to community: ${communityUrl}`);
+        console.info(`Checking access to community: ${communityUrl}`);
 
         await page.goto(communityUrl, {
             waitUntil: WAIT_CONDITIONS.pageLoad,
@@ -210,12 +210,12 @@ async function checkCommunityAccess(page, communityUrl) {
         const notFound = await page.$(SELECTORS.ERROR.notFound);
 
         if (accessDenied || privateContent || loginRequired) {
-            Apify.utils.log.error('Access denied to community - user is not a member');
+            console.error('Access denied to community - user is not a member');
             return false;
         }
 
         if (notFound) {
-            Apify.utils.log.error('Community not found - check URL');
+            console.error('Community not found - check URL');
             return false;
         }
 
@@ -224,23 +224,23 @@ async function checkCommunityAccess(page, communityUrl) {
         const postsContainer = await page.$(SELECTORS.NAVIGATION.postsContainer);
 
         if (communityTab || postsContainer) {
-            Apify.utils.log.info('Community access verified - user is a member');
+            console.info('Community access verified - user is a member');
             return true;
         }
 
         // Additional check - look for any post items
         try {
             await page.waitForSelector(SELECTORS.POSTS.postItem, { timeout: 5000 });
-            Apify.utils.log.info('Community access verified - posts found');
+            console.info('Community access verified - posts found');
             return true;
         } catch (waitError) {
-            Apify.utils.log.warning('No posts found - community might be empty or access restricted');
+            console.warning('No posts found - community might be empty or access restricted');
         }
 
         return true; // Assume access if no clear denial indicators
 
     } catch (error) {
-        Apify.utils.log.error(`Community access check failed: ${error.message}`);
+        console.error(`Community access check failed: ${error.message}`);
         return false;
     }
 }
@@ -270,7 +270,7 @@ function getAuthErrorMessage(error) {
  */
 async function refreshAuthentication(page, cookies) {
     try {
-        Apify.utils.log.info('Refreshing authentication...');
+        console.info('Refreshing authentication...');
         
         // Clear existing cookies and set fresh ones
         await page.deleteCookie(...await page.cookies());
@@ -280,7 +280,7 @@ async function refreshAuthentication(page, cookies) {
         return await verifyAuthentication(page);
         
     } catch (error) {
-        Apify.utils.log.error(`Authentication refresh failed: ${error.message}`);
+        console.error(`Authentication refresh failed: ${error.message}`);
         return false;
     }
 }

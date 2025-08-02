@@ -1,4 +1,4 @@
-const Apify = require('apify');
+// Apify SDK v3 import removed
 const { SELECTORS, EXTRACTION_PATTERNS } = require('../config/selectors');
 const { validatePostData, validateCommentData } = require('./validators');
 
@@ -104,7 +104,7 @@ async function parsePostData(postElement, page) {
                 const enhancedUser = await extractUserData(page, postData.user.id);
                 postData.user = { ...postData.user, ...enhancedUser };
             } catch (userError) {
-                Apify.utils.log.debug(`Failed to enhance user data for ${postData.user.id}: ${userError.message}`);
+                console.debug(`Failed to enhance user data for ${postData.user.id}: ${userError.message}`);
             }
         }
 
@@ -116,7 +116,7 @@ async function parsePostData(postElement, page) {
         return postData;
 
     } catch (error) {
-        Apify.utils.log.error(`Failed to parse post data: ${error.message}`);
+        console.error(`Failed to parse post data: ${error.message}`);
         throw error;
     }
 }
@@ -194,7 +194,7 @@ async function parseCommentData(commentElement, page) {
         return commentData;
 
     } catch (error) {
-        Apify.utils.log.error(`Failed to parse comment data: ${error.message}`);
+        console.error(`Failed to parse comment data: ${error.message}`);
         throw error;
     }
 }
@@ -218,7 +218,7 @@ async function extractUserData(page, userId) {
             }
         };
     } catch (error) {
-        Apify.utils.log.debug(`Failed to extract user data for ${userId}: ${error.message}`);
+        console.debug(`Failed to extract user data for ${userId}: ${error.message}`);
         return {
             metadata: {
                 bio: '',
@@ -239,7 +239,7 @@ async function extractUserData(page, userId) {
  */
 async function extractCommentsForPost(page, postUrl, maxDepth = 5) {
     try {
-        Apify.utils.log.debug(`Extracting comments for post: ${postUrl}`);
+        console.debug(`Extracting comments for post: ${postUrl}`);
 
         // Navigate to the post page
         await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -248,7 +248,7 @@ async function extractCommentsForPost(page, postUrl, maxDepth = 5) {
         try {
             await page.waitForSelector(SELECTORS.COMMENTS.commentsContainer, { timeout: 10000 });
         } catch (waitError) {
-            Apify.utils.log.debug('No comments container found - post may have no comments');
+            console.debug('No comments container found - post may have no comments');
             return [];
         }
 
@@ -276,16 +276,16 @@ async function extractCommentsForPost(page, postUrl, maxDepth = 5) {
 
                 comments.push(commentData);
             } catch (commentError) {
-                Apify.utils.log.debug(`Failed to parse comment: ${commentError.message}`);
+                console.debug(`Failed to parse comment: ${commentError.message}`);
                 continue;
             }
         }
 
-        Apify.utils.log.debug(`Extracted ${comments.length} comments for post`);
+        console.debug(`Extracted ${comments.length} comments for post`);
         return comments;
 
     } catch (error) {
-        Apify.utils.log.error(`Failed to extract comments for post ${postUrl}: ${error.message}`);
+        console.error(`Failed to extract comments for post ${postUrl}: ${error.message}`);
         return [];
     }
 }
@@ -319,7 +319,7 @@ async function extractNestedComments(page, commentElement, depth) {
 
                 nestedComments.push(nestedData);
             } catch (nestedError) {
-                Apify.utils.log.debug(`Failed to parse nested comment: ${nestedError.message}`);
+                console.debug(`Failed to parse nested comment: ${nestedError.message}`);
                 continue;
             }
         }
@@ -327,7 +327,7 @@ async function extractNestedComments(page, commentElement, depth) {
         return nestedComments;
 
     } catch (error) {
-        Apify.utils.log.debug(`Failed to extract nested comments: ${error.message}`);
+        console.debug(`Failed to extract nested comments: ${error.message}`);
         return [];
     }
 }
@@ -366,10 +366,10 @@ async function loadAllComments(page) {
             loadMoreAttempts++;
         }
 
-        Apify.utils.log.debug(`Loaded additional comments with ${loadMoreAttempts} load more clicks`);
+        console.debug(`Loaded additional comments with ${loadMoreAttempts} load more clicks`);
 
     } catch (error) {
-        Apify.utils.log.debug(`Failed to load all comments: ${error.message}`);
+        console.debug(`Failed to load all comments: ${error.message}`);
     }
 }
 
@@ -415,7 +415,7 @@ function extractContentMetadata(content) {
         return metadata;
 
     } catch (error) {
-        Apify.utils.log.debug(`Failed to extract content metadata: ${error.message}`);
+        console.debug(`Failed to extract content metadata: ${error.message}`);
         return {
             hashtags: [],
             mentions: [],

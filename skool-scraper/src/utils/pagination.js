@@ -1,4 +1,4 @@
-const Apify = require('apify');
+// Apify SDK v3 import removed
 const { SELECTORS, WAIT_CONDITIONS } = require('../config/selectors');
 
 /**
@@ -11,7 +11,7 @@ const { SELECTORS, WAIT_CONDITIONS } = require('../config/selectors');
  */
 async function handleInfiniteScroll(page, maxItems = 0, scrollDelay = 2, itemSelector = SELECTORS.POSTS.postItem) {
     try {
-        Apify.utils.log.info(`Starting infinite scroll pagination (maxItems: ${maxItems || 'unlimited'})`);
+        console.info(`Starting infinite scroll pagination (maxItems: ${maxItems || 'unlimited'})`);
 
         let itemCount = 0;
         let previousHeight = 0;
@@ -34,7 +34,7 @@ async function handleInfiniteScroll(page, maxItems = 0, scrollDelay = 2, itemSel
 
             // Check if we've reached the desired number of items
             if (maxItems > 0 && itemCount >= maxItems) {
-                Apify.utils.log.info(`Reached maximum items limit: ${itemCount}/${maxItems}`);
+                console.info(`Reached maximum items limit: ${itemCount}/${maxItems}`);
                 break;
             }
 
@@ -47,7 +47,7 @@ async function handleInfiniteScroll(page, maxItems = 0, scrollDelay = 2, itemSel
                     // Try clicking load more button if available
                     const loadMoreClicked = await clickLoadMoreButton(page);
                     if (!loadMoreClicked) {
-                        Apify.utils.log.info('No more content to load - reached end of page');
+                        console.info('No more content to load - reached end of page');
                         break;
                     } else {
                         stableScrollCount = 0; // Reset counter if load more worked
@@ -66,18 +66,18 @@ async function handleInfiniteScroll(page, maxItems = 0, scrollDelay = 2, itemSel
 
             // Log progress periodically
             if (scrollAttempts % 10 === 0) {
-                Apify.utils.log.info(`Scroll progress: ${itemCount} items loaded, ${scrollAttempts} scroll attempts`);
+                console.info(`Scroll progress: ${itemCount} items loaded, ${scrollAttempts} scroll attempts`);
             }
 
             // Check for loading indicators and wait for them to disappear
             await waitForContentToLoad(page);
         }
 
-        Apify.utils.log.info(`Infinite scroll completed: ${itemCount} items loaded in ${scrollAttempts} scroll attempts`);
+        console.info(`Infinite scroll completed: ${itemCount} items loaded in ${scrollAttempts} scroll attempts`);
         return itemCount;
 
     } catch (error) {
-        Apify.utils.log.error(`Infinite scroll failed: ${error.message}`);
+        console.error(`Infinite scroll failed: ${error.message}`);
         throw error;
     }
 }
@@ -107,7 +107,7 @@ async function performScrollAction(page, scrollDelayMs) {
         await page.waitForTimeout(500);
 
     } catch (error) {
-        Apify.utils.log.debug(`Scroll action failed: ${error.message}`);
+        console.debug(`Scroll action failed: ${error.message}`);
     }
 }
 
@@ -147,11 +147,11 @@ async function clickLoadMoreButton(page) {
         // Click the button
         await loadMoreButton.click();
         
-        Apify.utils.log.debug('Clicked load more button');
+        console.debug('Clicked load more button');
         return true;
 
     } catch (error) {
-        Apify.utils.log.debug(`Load more button click failed: ${error.message}`);
+        console.debug(`Load more button click failed: ${error.message}`);
         return false;
     }
 }
@@ -181,7 +181,7 @@ async function waitForContentToLoad(page) {
                 SELECTORS.PAGINATION.loadingIndicator
             ).catch(() => {
                 // Timeout is okay, content might have loaded anyway
-                Apify.utils.log.debug('Loading indicator timeout - proceeding anyway');
+                console.debug('Loading indicator timeout - proceeding anyway');
             });
         }
 
@@ -189,7 +189,7 @@ async function waitForContentToLoad(page) {
         await page.waitForTimeout(1000);
 
     } catch (error) {
-        Apify.utils.log.debug(`Content loading wait failed: ${error.message}`);
+        console.debug(`Content loading wait failed: ${error.message}`);
     }
 }
 
@@ -201,7 +201,7 @@ async function waitForContentToLoad(page) {
  */
 async function handleCommentPagination(page, maxComments = 0) {
     try {
-        Apify.utils.log.debug('Handling comment pagination');
+        console.debug('Handling comment pagination');
 
         let commentCount = 0;
         let loadMoreAttempts = 0;
@@ -230,11 +230,11 @@ async function handleCommentPagination(page, maxComments = 0) {
             await page.waitForTimeout(2000);
         }
 
-        Apify.utils.log.debug(`Comment pagination completed: ${commentCount} comments loaded`);
+        console.debug(`Comment pagination completed: ${commentCount} comments loaded`);
         return commentCount;
 
     } catch (error) {
-        Apify.utils.log.debug(`Comment pagination failed: ${error.message}`);
+        console.debug(`Comment pagination failed: ${error.message}`);
         return 0;
     }
 }
@@ -270,7 +270,7 @@ async function clickLoadMoreComments(page) {
         return true;
 
     } catch (error) {
-        Apify.utils.log.debug(`Load more comments click failed: ${error.message}`);
+        console.debug(`Load more comments click failed: ${error.message}`);
         return false;
     }
 }
@@ -351,7 +351,7 @@ async function smartScroll(page, options = {}) {
 
             // Log progress
             if (scrollMetrics.totalScrolls % 10 === 0) {
-                Apify.utils.log.info(
+                console.info(
                     `Smart scroll progress: ${itemCount} items, ` +
                     `${scrollMetrics.totalScrolls} scrolls, ` +
                     `${(scrollMetrics.averageItemsPerScroll).toFixed(1)} items/scroll avg`
@@ -361,7 +361,7 @@ async function smartScroll(page, options = {}) {
 
         scrollMetrics.totalTime = Date.now() - startTime;
         
-        Apify.utils.log.info(
+        console.info(
             `Smart scroll completed: ${itemCount} items in ${scrollMetrics.totalScrolls} scrolls ` +
             `(${(scrollMetrics.totalTime / 1000).toFixed(1)}s)`
         );
@@ -372,7 +372,7 @@ async function smartScroll(page, options = {}) {
         };
 
     } catch (error) {
-        Apify.utils.log.error(`Smart scroll failed: ${error.message}`);
+        console.error(`Smart scroll failed: ${error.message}`);
         throw error;
     }
 }
@@ -397,7 +397,7 @@ async function isAtEndOfContent(page) {
         return endIndicators.hasEndIndicator || endIndicators.isAtBottom;
 
     } catch (error) {
-        Apify.utils.log.debug(`End of content check failed: ${error.message}`);
+        console.debug(`End of content check failed: ${error.message}`);
         return false;
     }
 }

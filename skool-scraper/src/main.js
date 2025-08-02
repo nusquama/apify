@@ -1,4 +1,4 @@
-const Apify = require('apify');
+const { Actor } = require('apify');
 const SkoolScraper = require('./scraper');
 const { validateInput, ValidationError, AuthenticationError } = require('./utils/validators');
 const { getAuthErrorMessage } = require('./utils/auth');
@@ -6,20 +6,20 @@ const { getAuthErrorMessage } = require('./utils/auth');
 /**
  * Main Actor entry point
  */
-Apify.main(async () => {
+await Actor.main(async () => {
     try {
-        Apify.utils.log.info('=== SKOOL SCRAPER ACTOR STARTING ===');
+        console.log('=== SKOOL SCRAPER ACTOR STARTING ===');
 
         // Get and validate input
-        const input = await Apify.getInput();
-        Apify.utils.log.info('Input received, validating...');
+        const input = await Actor.getInput();
+        console.log('Input received, validating...');
 
         let validatedInput;
         try {
             validatedInput = validateInput(input);
-            Apify.utils.log.info('Input validation successful');
+            console.log('Input validation successful');
         } catch (validationError) {
-            Apify.utils.log.error(`Input validation failed: ${validationError.message}`);
+            console.error(`Input validation failed: ${validationError.message}`);
             throw validationError;
         }
 
@@ -27,7 +27,7 @@ Apify.main(async () => {
         logConfiguration(validatedInput);
 
         // Initialize dataset for storing results
-        const dataset = await Apify.openDataset();
+        const dataset = await Actor.openDataset();
         
         // Initialize scraper
         const scraper = new SkoolScraper(validatedInput);
@@ -37,15 +37,15 @@ Apify.main(async () => {
             await scraper.initialize();
 
             // Start scraping all communities
-            Apify.utils.log.info('Starting scraping process...');
+            console.log('Starting scraping process...');
             const allPosts = await scraper.scrapeAllCommunities();
 
             // Store results in dataset
             if (allPosts.length > 0) {
                 await storeResults(dataset, allPosts, validatedInput);
-                Apify.utils.log.info(`Successfully stored ${allPosts.length} posts in dataset`);
+                console.log(`Successfully stored ${allPosts.length} posts in dataset`);
             } else {
-                Apify.utils.log.warning('No posts were scraped - check community access and URLs');
+                console.warn('No posts were scraped - check community access and URLs');
             }
 
             // Log completion summary
@@ -59,7 +59,7 @@ Apify.main(async () => {
             await scraper.cleanup();
         }
 
-        Apify.utils.log.info('=== SKOOL SCRAPER ACTOR COMPLETED SUCCESSFULLY ===');
+        console.log('=== SKOOL SCRAPER ACTOR COMPLETED SUCCESSFULLY ===');
 
     } catch (error) {
         await handleFatalError(error);
@@ -72,21 +72,21 @@ Apify.main(async () => {
  * @param {Object} input - Validated input configuration
  */
 function logConfiguration(input) {
-    Apify.utils.log.info('=== CONFIGURATION ===');
-    Apify.utils.log.info(`Communities to scrape: ${input.startUrls.length}`);
+    console.log('=== CONFIGURATION ===');
+    console.log(`Communities to scrape: ${input.startUrls.length}`);
     input.startUrls.forEach((urlObj, index) => {
-        Apify.utils.log.info(`  ${index + 1}. ${urlObj.url}`);
+        console.log(`  ${index + 1}. ${urlObj.url}`);
     });
-    Apify.utils.log.info(`Tab: ${input.tab}`);
-    Apify.utils.log.info(`Include comments: ${input.includeComments}`);
-    Apify.utils.log.info(`Max items: ${input.maxItems || 'unlimited'}`);
-    Apify.utils.log.info(`Max concurrency: ${input.maxConcurrency}`);
-    Apify.utils.log.info(`Request delay: ${input.requestDelay}s`);
-    Apify.utils.log.info(`Scroll delay: ${input.scrollDelay}s`);
-    Apify.utils.log.info(`Debug mode: ${input.debug}`);
-    Apify.utils.log.info(`Cookies provided: ${input.cookies.length} items`);
-    Apify.utils.log.info(`Proxy enabled: ${input.proxyConfig?.useApifyProxy || false}`);
-    Apify.utils.log.info('=====================');
+    console.log(`Tab: ${input.tab}`);
+    console.log(`Include comments: ${input.includeComments}`);
+    console.log(`Max items: ${input.maxItems || 'unlimited'}`);
+    console.log(`Max concurrency: ${input.maxConcurrency}`);
+    console.log(`Request delay: ${input.requestDelay}s`);
+    console.log(`Scroll delay: ${input.scrollDelay}s`);
+    console.log(`Debug mode: ${input.debug}`);
+    console.log(`Cookies provided: ${input.cookies.length} items`);
+    console.log(`Proxy enabled: ${input.proxyConfig?.useApifyProxy || false}`);
+    console.log('=====================');
 }
 
 /**
@@ -118,7 +118,7 @@ async function storeResults(dataset, posts, input) {
             await dataset.pushData(enrichedBatch);
             storedCount += batch.length;
 
-            Apify.utils.log.info(`Stored batch: ${storedCount}/${posts.length} posts`);
+            console.log(`Stored batch: ${storedCount}/${posts.length} posts`);
 
             // Small delay between batches
             if (i + batchSize < posts.length) {
@@ -127,7 +127,7 @@ async function storeResults(dataset, posts, input) {
         }
 
     } catch (storageError) {
-        Apify.utils.log.error(`Failed to store results: ${storageError.message}`);
+        console.error(`Failed to store results: ${storageError.message}`);
         throw storageError;
     }
 }
@@ -138,24 +138,24 @@ async function storeResults(dataset, posts, input) {
  * @param {Object} stats - Scraping statistics
  */
 function logCompletionSummary(posts, stats) {
-    Apify.utils.log.info('=== SCRAPING SUMMARY ===');
-    Apify.utils.log.info(`Total communities processed: ${stats.communitiesProcessed}`);
-    Apify.utils.log.info(`Total posts scraped: ${stats.totalPosts}`);
-    Apify.utils.log.info(`Total comments scraped: ${stats.totalComments}`);
+    console.log('=== SCRAPING SUMMARY ===');
+    console.log(`Total communities processed: ${stats.communitiesProcessed}`);
+    console.log(`Total posts scraped: ${stats.totalPosts}`);
+    console.log(`Total comments scraped: ${stats.totalComments}`);
     
     if (posts.length > 0) {
         const postsWithComments = posts.filter(post => post.comments && post.comments.length > 0);
-        Apify.utils.log.info(`Posts with comments: ${postsWithComments.length}`);
+        console.log(`Posts with comments: ${postsWithComments.length}`);
         
         const avgCommentsPerPost = stats.totalComments / stats.totalPosts;
-        Apify.utils.log.info(`Average comments per post: ${avgCommentsPerPost.toFixed(2)}`);
+        console.log(`Average comments per post: ${avgCommentsPerPost.toFixed(2)}`);
     }
 
     if (stats.errors.length > 0) {
-        Apify.utils.log.warning(`Errors encountered: ${stats.errors.length}`);
+        console.warn(`Errors encountered: ${stats.errors.length}`);
     }
 
-    Apify.utils.log.info('========================');
+    console.log('========================');
 }
 
 /**
@@ -163,14 +163,14 @@ function logCompletionSummary(posts, stats) {
  * @param {Error} error - Scraping error
  */
 async function handleScrapingError(error) {
-    Apify.utils.log.error('=== SCRAPING ERROR ===');
+    console.error('=== SCRAPING ERROR ===');
     
     if (error instanceof AuthenticationError) {
         const authMessage = getAuthErrorMessage(error);
-        Apify.utils.log.error(authMessage);
+        console.error(authMessage);
         
         // Store error details for user
-        await Apify.setValue('AUTHENTICATION_ERROR', {
+        await Actor.setValue('AUTHENTICATION_ERROR', {
             error: authMessage,
             timestamp: new Date().toISOString(),
             troubleshooting: {
@@ -183,19 +183,19 @@ async function handleScrapingError(error) {
         });
         
     } else if (error instanceof ValidationError) {
-        Apify.utils.log.error(`Input validation error: ${error.message}`);
+        console.error(`Input validation error: ${error.message}`);
         
-        await Apify.setValue('VALIDATION_ERROR', {
+        await Actor.setValue('VALIDATION_ERROR', {
             error: error.message,
             timestamp: new Date().toISOString(),
             inputSchema: 'Check INPUT_SCHEMA.json for required field formats'
         });
         
     } else {
-        Apify.utils.log.error(`Scraping failed: ${error.message}`);
-        Apify.utils.log.error(`Stack trace: ${error.stack}`);
+        console.error(`Scraping failed: ${error.message}`);
+        console.error(`Stack trace: ${error.stack}`);
         
-        await Apify.setValue('SCRAPING_ERROR', {
+        await Actor.setValue('SCRAPING_ERROR', {
             error: error.message,
             stack: error.stack,
             timestamp: new Date().toISOString()
@@ -208,15 +208,15 @@ async function handleScrapingError(error) {
  * @param {Error} error - Fatal error
  */
 async function handleFatalError(error) {
-    Apify.utils.log.error('=== FATAL ERROR ===');
-    Apify.utils.log.error(`Actor failed: ${error.message}`);
+    console.error('=== FATAL ERROR ===');
+    console.error(`Actor failed: ${error.message}`);
     
     if (error.stack) {
-        Apify.utils.log.error(`Stack trace: ${error.stack}`);
+        console.error(`Stack trace: ${error.stack}`);
     }
 
     // Store error information for debugging
-    await Apify.setValue('FATAL_ERROR', {
+    await Actor.setValue('FATAL_ERROR', {
         error: error.message,
         stack: error.stack,
         timestamp: new Date().toISOString(),
@@ -226,39 +226,39 @@ async function handleFatalError(error) {
 
     // Provide user guidance based on error type
     if (error.message.includes('Input validation')) {
-        Apify.utils.log.error('\n🔧 FIX: Check your input parameters and ensure all required fields are provided.');
+        console.error('\n🔧 FIX: Check your input parameters and ensure all required fields are provided.');
     } else if (error.message.includes('Authentication')) {
-        Apify.utils.log.error('\n🔧 FIX: Verify your cookies are valid and you have access to the communities.');
+        console.error('\n🔧 FIX: Verify your cookies are valid and you have access to the communities.');
     } else if (error.message.includes('Network') || error.message.includes('timeout')) {
-        Apify.utils.log.error('\n🔧 FIX: Check your network connection and try again. Consider using proxy configuration.');
+        console.error('\n🔧 FIX: Check your network connection and try again. Consider using proxy configuration.');
     } else {
-        Apify.utils.log.error('\n🔧 FIX: Check the error details above and contact support if the issue persists.');
+        console.error('\n🔧 FIX: Check the error details above and contact support if the issue persists.');
     }
 
-    Apify.utils.log.error('==================');
+    console.error('==================');
 }
 
 /**
  * Handles graceful shutdown
  */
 process.on('SIGTERM', async () => {
-    Apify.utils.log.info('Received SIGTERM, performing graceful shutdown...');
+    console.log('Received SIGTERM, performing graceful shutdown...');
     // Cleanup will be handled in the finally block of main()
 });
 
 process.on('SIGINT', async () => {
-    Apify.utils.log.info('Received SIGINT, performing graceful shutdown...');
+    console.log('Received SIGINT, performing graceful shutdown...');
     // Cleanup will be handled in the finally block of main()
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-    Apify.utils.log.error('Unhandled Promise Rejection:', reason);
+    console.error('Unhandled Promise Rejection:', reason);
     // Don't exit process, let main error handler deal with it
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-    Apify.utils.log.error('Uncaught Exception:', error);
+    console.error('Uncaught Exception:', error);
     process.exit(1);
 });
