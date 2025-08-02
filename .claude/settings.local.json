@@ -28,7 +28,9 @@
       "WebFetch(domain:github.com)",
       "Bash(sudo chown:*)",
       "Bash(npm cache clean:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
     "deny": []
   }
