@@ -1,0 +1,144 @@
+{
+  "title": "Skool.com Community Scraper",
+  "description": "Extract posts, comments, and user data from Skool.com communities",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrls": {
+      "title": "Community URLs",
+      "type": "array",
+      "description": "List of Skool.com community URLs to scrape. You must be a member of these communities.",
+      "prefill": [
+        { "url": "https://www.skool.com/ai-automation-mastery" }
+      ],
+      "editor": "requestListSources",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "pattern": "^https://www\\.skool\\.com/[a-zA-Z0-9-_]+/?$"
+          }
+        },
+        "required": ["url"]
+      }
+    },
+    "tab": {
+      "title": "Content Tab",
+      "type": "string",
+      "description": "Which tab to scrape from the community",
+      "default": "community",
+      "enum": ["community", "classroom"],
+      "enumTitles": ["Community (Posts & Discussions)", "Classroom (Courses & Modules)"]
+    },
+    "includeComments": {
+      "title": "Include Comments",
+      "type": "boolean",
+      "description": "Whether to extract comments for each post (may significantly increase scraping time)",
+      "default": true
+    },
+    "maxItems": {
+      "title": "Maximum Items",
+      "type": "integer",
+      "description": "Maximum number of posts to scrape per community (0 = unlimited)",
+      "default": 1000,
+      "minimum": 0,
+      "maximum": 50000
+    },
+    "maxConcurrency": {
+      "title": "Maximum Concurrency",
+      "type": "integer",
+      "description": "Maximum number of concurrent requests (higher = faster but more resource intensive)",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 50
+    },
+    "minConcurrency": {
+      "title": "Minimum Concurrency",
+      "type": "integer",
+      "description": "Minimum number of concurrent requests",
+      "default": 1,
+      "minimum": 1,
+      "maximum": 10
+    },
+    "maxRequestRetries": {
+      "title": "Request Retries",
+      "type": "integer",
+      "description": "Maximum number of retries for failed requests",
+      "default": 3,
+      "minimum": 0,
+      "maximum": 10
+    },
+    "cookies": {
+      "title": "Authentication Cookies",
+      "type": "array",
+      "description": "Cookies exported from your browser after logging into Skool.com. Required for accessing community content. Use Cookie-Editor or EditThisCookie browser extension.",
+      "editor": "json",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "secure": {
+            "type": "boolean"
+          },
+          "httpOnly": {
+            "type": "boolean"
+          },
+          "sameSite": {
+            "type": "string",
+            "enum": ["Strict", "Lax", "None"]
+          }
+        },
+        "required": ["name", "value", "domain"]
+      }
+    },
+    "proxyConfig": {
+      "title": "Proxy Configuration",
+      "type": "object",
+      "description": "Proxy settings for reliable scraping and avoiding IP blocks",
+      "editor": "proxy",
+      "default": {
+        "useApifyProxy": true,
+        "apifyProxyGroups": ["RESIDENTIAL"]
+      },
+      "prefill": {
+        "useApifyProxy": true,
+        "apifyProxyGroups": ["RESIDENTIAL"]
+      }
+    },
+    "requestDelay": {
+      "title": "Request Delay (seconds)",
+      "type": "number",
+      "description": "Delay between requests to mimic human behavior and avoid rate limiting",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 10
+    },
+    "scrollDelay": {
+      "title": "Scroll Delay (seconds)",
+      "type": "number",
+      "description": "Delay between scroll actions during pagination",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 5
+    },
+    "debug": {
+      "title": "Debug Mode",
+      "type": "boolean",
+      "description": "Enable verbose logging for troubleshooting",
+      "default": false
+    }
+  },
+  "required": ["startUrls", "cookies"]
+}

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(grep:*)",
@@ -16,7 +17,13 @@
       "Bash(python:*)",
       "Bash(python -m pytest:*)",
       "Bash(python3 -m pytest:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:docs.apify.com)",
+      "WebFetch(domain:docs.apify.com)",
+      "WebFetch(domain:apify.com)",
+      "WebFetch(domain:pptr.dev)",
+      "Bash(npm install:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

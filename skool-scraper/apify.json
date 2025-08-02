@@ -1,0 +1,58 @@
+{
+  "actorSpecification": 1,
+  "name": "skool-scraper",
+  "title": "Skool.com Community Scraper",
+  "description": "Extract comprehensive data from Skool.com communities including posts, nested comments, user profiles, and engagement metrics. Supports cookie authentication, multiple URLs, infinite scroll pagination, and both Community and Classroom tabs.",
+  "version": "1.0.0",
+  "meta": {
+    "templateId": "js-crawlee-puppeteer"
+  },
+  "input": "./INPUT_SCHEMA.json",
+  "dockerfile": "./Dockerfile",
+  "readme": "./README.md",
+  "categories": [
+    "SOCIAL_MEDIA",
+    "ECOMMERCE",
+    "EDUCATION"
+  ],
+  "defaultRunOptions": {
+    "build": "latest",
+    "timeoutSecs": 3600,
+    "memoryMbytes": 4096
+  },
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "title": "Scraped Skool Data",
+      "description": "Posts, comments, and user data from Skool.com communities",
+      "views": {
+        "overview": {
+          "title": "Overview",
+          "transformation": {
+            "fields": [
+              "id",
+              "metadata.title",
+              "user.name",
+              "metadata.upvotes",
+              "metadata.comments",
+              "createdAt"
+            ]
+          }
+        },
+        "posts": {
+          "title": "Posts Only",
+          "transformation": {
+            "fields": [
+              "id",
+              "metadata.title",
+              "metadata.content",
+              "user.name",
+              "metadata.upvotes",
+              "url"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
