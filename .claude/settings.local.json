@@ -30,7 +30,10 @@
       "Bash(npm cache clean:*)",
       "Bash(timeout:*)",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs"
+      "mcp__context7__get-library-docs",
+      "Bash(npm start)",
+      "Bash(APIFY_INPUT_FILE=test_input.json npm start)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

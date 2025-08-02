@@ -250,28 +250,59 @@ export function parseSkoolApiResponse(jsonResponse) {
  */
 export function extractPostData(post) {
     try {
+        // Debug: Let's see the actual post structure
+        console.log('Post structure keys:', Object.keys(post));
+        if (post.metadata) {
+            console.log('Post metadata keys:', Object.keys(post.metadata));
+        }
+        if (post.user) {
+            console.log('Post user keys:', Object.keys(post.user));
+        }
+
+        // Extract data according to real Skool API structure
+        const metadata = post.metadata || {};
+        const user = post.user || {};
+        const userMetadata = user.metadata || {};
+
         return {
             id: post.id || post._id,
-            title: post.title || post.subject,
-            content: post.content || post.body || post.text,
+            title: metadata.title || post.title || post.subject || 'Untitled',
+            content: metadata.content || post.content || post.body || post.text || '',
             author: {
-                id: post.author?.id || post.user?.id,
-                name: post.author?.name || post.user?.name || post.author?.displayName,
-                email: post.author?.email || post.user?.email,
-                avatar: post.author?.avatar || post.user?.avatar || post.author?.profilePicture
+                id: user.id || post.userId || post.user_id,
+                name: user.name || user.firstName + ' ' + user.lastName || user.displayName || 'Unknown',
+                firstName: user.firstName || user.first_name,
+                lastName: user.lastName || user.last_name,
+                email: user.email,
+                avatar: userMetadata.pictureProfile || userMetadata.picture_profile || user.avatar,
+                bio: userMetadata.bio,
+                location: userMetadata.location,
+                website: userMetadata.linkWebsite || userMetadata.link_website
             },
             createdAt: post.createdAt || post.created_at || post.timestamp,
             updatedAt: post.updatedAt || post.updated_at,
-            likes: post.likes || post.likeCount || post.reactions?.like || 0,
-            comments: post.comments || post.commentCount || 0,
-            url: post.url || `https://www.skool.com/post/${post.id}`,
+            likes: metadata.upvotes || post.likes || post.likeCount || 0,
+            comments: metadata.comments || post.comments || post.commentCount || 0,
+            url: post.url || (post.name ? `https://www.skool.com/post/${post.name}` : `https://www.skool.com/post/${post.id}`) || 'https://www.skool.com/post/unknown',
             isPrivate: post.isPrivate || post.private || false,
+            isPinned: metadata.pinned === 1 || metadata.pinned === true,
+            postType: post.postType || post.post_type || 'generic',
+            groupId: post.groupId || post.group_id,
+            labelId: post.labelId || post.label_id,
             tags: post.tags || [],
-            media: post.media || post.attachments || [],
-            commentsData: post.commentsData || []
+            media: {
+                imagePreview: metadata.imagePreview || metadata.image_preview,
+                imagePreviewSmall: metadata.imagePreviewSmall || metadata.image_preview_small,
+                videoLinks: metadata.videoLinksData ? JSON.parse(metadata.videoLinksData || '[]') : [],
+                attachments: post.attachments || []
+            },
+            commentsData: post.comments || [],
+            hasNewComments: metadata.hasNewComments === 1 || metadata.hasNewComments === true,
+            lastCommentAt: metadata.lastComment ? new Date(metadata.lastComment / 1000).toISOString() : null
         };
     } catch (error) {
         console.error('Error extracting post data:', error.message);
+        console.error('Post object:', JSON.stringify(post, null, 2));
         return null;
     }
 }
