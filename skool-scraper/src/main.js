@@ -137,16 +137,17 @@ async function storeResults(dataset, posts, input) {
  */
 function logCompletionSummary(posts, stats) {
     console.log('=== SCRAPING SUMMARY ===');
-    console.log(`Total communities processed: ${stats.communitiesProcessed}`);
-    console.log(`Total posts scraped: ${stats.totalPosts}`);
-    console.log(`Total comments scraped: ${stats.totalComments}`);
+    console.log(`Total communities processed: ${stats.communities || 0}`);
+    console.log(`Total posts scraped: ${stats.posts || 0}`);
+    console.log(`Total items processed: ${stats.processed || 0}`);
     
     if (posts.length > 0) {
         const postsWithComments = posts.filter(post => post.comments && post.comments.length > 0);
         console.log(`Posts with comments: ${postsWithComments.length}`);
         
-        const avgCommentsPerPost = stats.totalComments / stats.totalPosts;
-        console.log(`Average comments per post: ${avgCommentsPerPost.toFixed(2)}`);
+        if (stats.posts > 0) {
+            console.log(`Posts with comments: ${postsWithComments.length}/${stats.posts}`);
+        }
     }
 
     if (stats.errors.length > 0) {

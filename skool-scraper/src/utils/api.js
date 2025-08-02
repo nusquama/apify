@@ -166,17 +166,46 @@ export function parseSkoolApiResponse(jsonResponse) {
     try {
         const data = JSON.parse(jsonResponse);
         
+        // Debug: log the structure to understand what we're getting
+        console.log('API Response structure keys:', Object.keys(data));
+        
         // Navigate through Next.js data structure
         const pageProps = data?.pageProps || {};
         
+        // Debug: log pageProps structure
+        if (pageProps) {
+            console.log('PageProps keys:', Object.keys(pageProps));
+        }
+
+        // Try multiple possible locations for posts data
+        let posts = [];
+        
+        // Check common locations for posts
+        if (pageProps.posts) {
+            posts = pageProps.posts;
+        } else if (pageProps.items) {
+            posts = pageProps.items;
+        } else if (pageProps.feed) {
+            posts = pageProps.feed;
+        } else if (pageProps.data) {
+            posts = pageProps.data;
+        } else if (pageProps.content) {
+            posts = pageProps.content;
+        } else if (data.posts) {
+            posts = data.posts;
+        }
+
+        console.log(`Found ${posts.length} posts in API response`);
+        
         return {
-            posts: pageProps.posts || pageProps.items || [],
-            totalPages: pageProps.totalPages || 0,
-            totalUsers: pageProps.totalUsers || pageProps.memberCount || 0,
+            posts: posts || [],
+            totalPages: pageProps.totalPages || pageProps.maxPage || 0,
+            totalUsers: pageProps.totalUsers || pageProps.memberCount || pageProps.membersCount || 0,
             buildId: data.buildId,
-            community: pageProps.community || pageProps.group || {},
-            hasNextPage: pageProps.hasNextPage || false,
-            currentPage: pageProps.currentPage || pageProps.page || 1
+            community: pageProps.community || pageProps.group || pageProps.groupData || {},
+            hasNextPage: pageProps.hasNextPage || pageProps.hasMore || false,
+            currentPage: pageProps.currentPage || pageProps.page || pageProps.pageNumber || 1,
+            rawData: data // Keep raw data for debugging
         };
 
     } catch (error) {
@@ -188,7 +217,8 @@ export function parseSkoolApiResponse(jsonResponse) {
             buildId: null,
             community: {},
             hasNextPage: false,
-            currentPage: 1
+            currentPage: 1,
+            rawData: null
         };
     }
 }

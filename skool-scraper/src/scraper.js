@@ -105,6 +105,9 @@ export class SkoolScraper {
                 throw new Error('Could not extract buildId from page');
             }
 
+            // Increment communities counter
+            this.stats.communities++;
+
             // Extract user info for authentication verification
             const userInfo = extractUserInfo(body);
             if (userInfo.email) {
