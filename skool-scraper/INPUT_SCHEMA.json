@@ -16,7 +16,9 @@
         "type": "object",
         "properties": {
           "url": {
+            "title": "Community URL",
             "type": "string",
+            "description": "Skool.com community URL",
             "pattern": "^https://www\\.skool\\.com/[a-zA-Z0-9-_]+/?$"
           }
         },
