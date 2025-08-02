@@ -32,30 +32,28 @@ class SkoolScraper {
             // Launch browser with appropriate configuration using Crawlee's launchPuppeteer
             // This automatically handles browser installation and proxy configuration
             this.browser = await launchPuppeteer({
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-features=site-per-process'
-                ],
+                launchOptions: {
+                    headless: true,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-accelerated-2d-canvas',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--disable-gpu',
+                        '--disable-web-security',
+                        '--disable-features=site-per-process'
+                    ]
+                },
                 proxyUrl: this.input.proxyConfig?.useApifyProxy ? undefined : this.input.proxyConfig?.proxyUrl,
-                useApifyProxy: this.input.proxyConfig?.useApifyProxy,
-                apifyProxyGroups: this.input.proxyConfig?.apifyProxyGroups || ['RESIDENTIAL']
+                useChrome: false, // Use Chromium instead of full Chrome
+                useIncognitoPages: true, // Use incognito for better isolation
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             });
 
             // Create new page
             this.page = await this.browser.newPage();
-
-            // Set user agent to mimic real browser
-            await this.page.setUserAgent(
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            );
 
             // Set viewport
             await this.page.setViewport({ width: 1920, height: 1080 });
