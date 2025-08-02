@@ -1,6 +1,5 @@
 import { Actor } from 'apify';
-import { PuppeteerCrawler } from 'crawlee';
-import puppeteer from 'puppeteer';
+import { PuppeteerCrawler, launchPuppeteer } from 'crawlee';
 import { SELECTORS, WAIT_CONDITIONS, ERROR_MESSAGES } from './config/selectors.js';
 import { setupAuthentication, checkCommunityAccess } from './utils/auth.js';
 import { parsePostData, extractCommentsForPost } from './utils/parsers.js';
@@ -30,8 +29,9 @@ class SkoolScraper {
         try {
             console.log('Initializing Skool scraper...');
 
-            // Launch browser with appropriate configuration
-            this.browser = await puppeteer.launch({
+            // Launch browser with appropriate configuration using Crawlee's launchPuppeteer
+            // This automatically handles browser installation and proxy configuration
+            this.browser = await launchPuppeteer({
                 headless: true,
                 args: [
                     '--no-sandbox',
@@ -40,8 +40,13 @@ class SkoolScraper {
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
                     '--no-zygote',
-                    '--disable-gpu'
-                ]
+                    '--disable-gpu',
+                    '--disable-web-security',
+                    '--disable-features=site-per-process'
+                ],
+                proxyUrl: this.input.proxyConfig?.useApifyProxy ? undefined : this.input.proxyConfig?.proxyUrl,
+                useApifyProxy: this.input.proxyConfig?.useApifyProxy,
+                apifyProxyGroups: this.input.proxyConfig?.apifyProxyGroups || ['RESIDENTIAL']
             });
 
             // Create new page
