@@ -181,8 +181,14 @@ export function parseSkoolApiResponse(jsonResponse) {
         let posts = [];
         
         // Check common locations for posts - SKOOL USES postTrees!
-        if (pageProps.postTrees) {
+        if (pageProps.postTrees && Array.isArray(pageProps.postTrees)) {
             posts = pageProps.postTrees;
+        } else if (pageProps.postTrees && typeof pageProps.postTrees === 'object') {
+            // postTrees might be an object with post arrays inside
+            const postTreesValues = Object.values(pageProps.postTrees);
+            if (postTreesValues.length > 0 && Array.isArray(postTreesValues[0])) {
+                posts = postTreesValues.flat(); // Flatten all arrays
+            }
         } else if (pageProps.posts) {
             posts = pageProps.posts;
         } else if (pageProps.items) {
@@ -195,6 +201,16 @@ export function parseSkoolApiResponse(jsonResponse) {
             posts = pageProps.content;
         } else if (data.posts) {
             posts = data.posts;
+        }
+
+        // Debug: Let's see what's actually in postTrees
+        if (pageProps.postTrees) {
+            console.log(`PostTrees type: ${typeof pageProps.postTrees}`);
+            console.log(`PostTrees is array: ${Array.isArray(pageProps.postTrees)}`);
+            console.log(`PostTrees keys: ${Object.keys(pageProps.postTrees)}`);
+            if (Array.isArray(pageProps.postTrees)) {
+                console.log(`PostTrees length: ${pageProps.postTrees.length}`);
+            }
         }
 
         console.log(`Found ${posts.length} posts in API response`);
