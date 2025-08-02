@@ -28,6 +28,14 @@ class SkoolScraper {
         try {
             console.log('Initializing Skool scraper...');
 
+            // Create proxy configuration if needed
+            let proxyConfiguration = undefined;
+            if (this.input.proxyConfig?.useApifyProxy) {
+                proxyConfiguration = await Actor.createProxyConfiguration({
+                    groups: this.input.proxyConfig.apifyProxyGroups || ['RESIDENTIAL']
+                });
+            }
+
             // Initialize PuppeteerCrawler which handles browser launching automatically
             this.crawler = new PuppeteerCrawler({
                 // Browser launch configuration
@@ -51,10 +59,7 @@ class SkoolScraper {
                 },
                 
                 // Proxy configuration
-                proxyConfiguration: this.input.proxyConfig?.useApifyProxy ? 
-                    Actor.createProxyConfiguration({
-                        groups: this.input.proxyConfig.apifyProxyGroups || ['RESIDENTIAL']
-                    }) : undefined,
+                proxyConfiguration,
 
                 // Request handler - this will be called for each URL
                 requestHandler: async ({ request, page }) => {

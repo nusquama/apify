@@ -27,7 +27,8 @@
       "WebFetch(domain:crawlee.dev)",
       "WebFetch(domain:github.com)",
       "Bash(sudo chown:*)",
-      "Bash(npm cache clean:*)"
+      "Bash(npm cache clean:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }
