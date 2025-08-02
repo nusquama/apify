@@ -25,7 +25,9 @@
       "Bash(npm install:*)",
       "Bash(node:*)",
       "WebFetch(domain:crawlee.dev)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(sudo chown:*)",
+      "Bash(npm cache clean:*)"
     ],
     "deny": []
   }
